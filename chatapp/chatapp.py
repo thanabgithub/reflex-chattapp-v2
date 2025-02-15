@@ -1,8 +1,27 @@
-# chatapp.py
+# chatapp/chatapp.py
 import reflex as rx
 
 from chatapp import style
 from chatapp.state import State
+
+
+# Chat styles - not shared, moved to chatapp.py
+chat_style = dict(
+    padding="2em",
+    height="100vh",
+    overflow_y="auto",
+    background_color="white",
+    color="black",
+)
+
+sidebar_style = dict(
+    padding="1em",
+    background_color="#FFFFFF",
+    border_right="1px solid #E9E9E9",
+    height="100vh",
+    width="250px",
+    color="black",
+)
 
 
 def qa(question: str, answer: str) -> rx.Component:
@@ -10,8 +29,7 @@ def qa(question: str, answer: str) -> rx.Component:
         rx.box(
             rx.text(question, style=style.question_style),
             text_align="left",
-            style={"alignSelf": "end"},
-            width="80%",
+            width="80%",  # Moved uncommon style here
         ),
         rx.box(
             rx.text(answer, style=style.answer_style),
@@ -94,7 +112,7 @@ def sidebar() -> rx.Component:
             align="start",
             spacing="4",
         ),
-        style=style.sidebar_style,
+        style=sidebar_style,  # Moved uncommon style here
     )
 
 
@@ -110,8 +128,8 @@ def index() -> rx.Component:
                         size="8",
                         color="black",
                         text_align="center",  # align center here
-                        margin_top="25%",
-                        margin_b0ttom="5%",
+                        margin_top="25%",  # Moved uncommon style here
+                        margin_b0ttom="5%",  # Moved uncommon style here
                     ),
                     rx.box(),  # render empty box when chat_history is not empty
                 ),
@@ -121,7 +139,7 @@ def index() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            style=style.chat_style,
+            style=chat_style,  # Moved uncommon style here
         ),
         rx.box(
             # dummy empty box in the rightest column

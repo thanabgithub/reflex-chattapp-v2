@@ -15,21 +15,20 @@ message_style = dict(
 )
 
 question_style = message_style | dict(
-    # margin_left=chat_margin,
     width="100%",
     border="1px solid #E9E9E9",
-    box_shadow="none",  # removed box shadow here
+    box_shadow="none",
 )
 
 answer_style = message_style | dict(
     margin_right=chat_margin,
-    background_color="#F9F9F9",  # removed box shadow here
+    background_color="#F9F9F9",
     border="1px solid #E9E9E9",
-    box_shadow="none",  # removed box shadow here
+    box_shadow="none",
     width="100%",
 )
 
-# Input container style
+# Input container style # Keep as it might be reused for other input containers
 input_container_style = dict(
     border="1px solid #E9E9E9",
     border_radius="15px",
@@ -39,7 +38,7 @@ input_container_style = dict(
     box_shadow=shadow,
 )
 
-# Form style
+# Form style # Keep as it might be reused for other forms
 form_style = dict(
     width="100%",
     border="none",
@@ -48,7 +47,7 @@ form_style = dict(
     _focus={"border": "none", "outline": "none", "box_shadow": "none"},
 )
 
-# Input field style
+# Input field style # Keep as it is a common input style
 input_style = dict(
     border="none",
     border_width="0",
@@ -76,14 +75,14 @@ input_style = dict(
     _webkit_box_shadow="none",
 )
 
-# Controls container style
+# Controls container style # Keep as it might be reused for other control areas
 controls_style = dict(
     padding_top="0.5em",
     gap="2",
     width="100%",
 )
 
-# Model select style
+# Model select style # Keep as it might be reused for other selects
 select_style = dict(
     border="1px solid #E9E9E9",
     padding="0.5em",
@@ -94,30 +93,12 @@ select_style = dict(
     min_width="150px",
 )
 
-# Submit button style
+# Submit button style # Keep as it might be reused for other buttons
 button_style = dict(
     background_color="#FFFFFF",
     border="1px solid #E9E9E9",
     border_radius="50%",
     padding="0.5em",
     aspect_ratio="1",
-    color="black",
-)
-
-# Layout styles
-sidebar_style = dict(
-    padding="1em",
-    background_color="#FFFFFF",
-    border_right="1px solid #E9E9E9",
-    height="100vh",
-    width="250px",
-    color="black",
-)
-
-chat_style = dict(
-    padding="2em",
-    height="100vh",
-    overflow_y="auto",
-    background_color="white",
     color="black",
 )

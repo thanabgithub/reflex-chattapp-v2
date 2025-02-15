@@ -13,4 +13,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# credentials
 .env
+
+# dev
+summarize_code.sh
+code_summary.txt

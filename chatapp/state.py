@@ -5,16 +5,17 @@ import reflex as rx
 
 load_dotenv()
 
+
 class State(rx.State):
     # The current question being asked
     question: str = ""
-    
+
     # The selected model
-    model: str = "GPT-4"
-    
+    model: str = "deepseek/deepseek-r1"
+
     # Chat history as list of (question, answer) tuples
     chat_history: list[tuple[str, str]] = []
-    
+
     # Conversation history
     history: list[str] = ["会話 1", "会話 2", "会話 3", "会話 4", "会話 5"]
 
@@ -50,21 +51,25 @@ class State(rx.State):
         """Load a specific chat history."""
         # In a real app, this would load from a database
         self.chat_history = []
-        
+
     def set_model(self, model: str):
         """Set the model to use for chat."""
         self.model = model
+        print(self.model)
 
     async def answer(self):
         """Generate an AI response."""
         # Our chatbot has some brains now!
-        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=os.environ["OPENROUTER_API_KEY"],
+        )
 
         # Get formatted message history
         messages = self.format_messages()
-
+        print(f"model: {self.model}")
         session = await client.chat.completions.create(
-            model="gpt-4" if self.model == "GPT-4" else "gpt-3.5-turbo",
+            model=self.model,
             messages=messages,
             stop=None,
             temperature=0.7,

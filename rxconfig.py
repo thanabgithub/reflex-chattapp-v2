@@ -12,9 +12,8 @@ class LogLevel(str, Enum):
 
 config = rx.Config(
     app_name="chatapp",
-    tailwind={},
-    env=rx.Env.DEV,
-    loglevel=LogLevel.DEBUG,
-    frontend_port=3000,
-    backend_port=8000,
+    theme=rx.theme(
+        accent_color="blue",
+        radius="medium",
+    ),
 )

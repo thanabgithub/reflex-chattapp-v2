@@ -6,25 +6,29 @@ from chatapp.state import State
 
 
 def qa(question: str, answer: str) -> rx.Component:
-    return rx.box(
+    return rx.fragment(
         rx.box(
             rx.text(question, style=style.question_style),
-            text_align="right",
+            text_align="left",
+            style={"alignSelf": "end"},
+            width="80%",
         ),
         rx.box(
             rx.text(answer, style=style.answer_style),
             text_align="left",
+            width="100%",  # set width 100% for answer
         ),
-        margin_y="1em",
     )
 
 
 def chat() -> rx.Component:
-    return rx.box(
+    return rx.vstack(
         rx.foreach(
             State.chat_history,
             lambda messages: qa(messages[0], messages[1]),
-        )
+        ),
+        align="end",
+        width="100%",
     )
 
 
@@ -103,8 +107,11 @@ def index() -> rx.Component:
                     State.chat_history.length() == 0,
                     rx.heading(
                         "お手伝いできることはありますか?",
-                        size="7",
+                        size="8",
                         color="black",
+                        text_align="center",  # align center here
+                        margin_top="25%",
+                        margin_b0ttom="5%",
                     ),
                     rx.box(),  # render empty box when chat_history is not empty
                 ),

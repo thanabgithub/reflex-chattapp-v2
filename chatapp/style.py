@@ -1,3 +1,4 @@
+# chatapp/style.py
 import reflex as rx
 
 # Common styles
@@ -9,21 +10,23 @@ message_style = dict(
     padding="1em",
     border_radius="5px",
     margin_y="0.5em",
-    box_shadow=shadow,
-    max_width="30em",
     display="inline-block",
     color="black",
 )
 
 question_style = message_style | dict(
-    margin_left=chat_margin,
-    background_color="#E9E9E9",
+    # margin_left=chat_margin,
+    width="100%",
+    border="1px solid #E9E9E9",
+    box_shadow="none",  # removed box shadow here
 )
 
 answer_style = message_style | dict(
     margin_right=chat_margin,
-    background_color="#FFFFFF",
+    background_color="#F9F9F9",  # removed box shadow here
     border="1px solid #E9E9E9",
+    box_shadow="none",  # removed box shadow here
+    width="100%",
 )
 
 # Input container style

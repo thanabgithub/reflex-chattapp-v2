@@ -12,8 +12,4 @@ class LogLevel(str, Enum):
 
 config = rx.Config(
     app_name="chatapp",
-    theme=rx.theme(
-        accent_color="blue",
-        radius="medium",
-    ),
 )

@@ -46,11 +46,11 @@ def action_bar() -> rx.Component:
                 rx.hstack(
                     rx.select(
                         [
-                            "deepseek/deepseek-chat",
+                            "deepseek/deepseek-r1",
                             "openai/gpt-4o-mini",
                             "google/gemini-2.0-flash-thinking-exp:free",
                         ],
-                        placeholder="deepseek/deepseek-chat",
+                        placeholder="deepseek/deepseek-r1",
                         on_change=State.set_model,
                         style=style.select_style,
                     ),
@@ -117,5 +117,12 @@ def index() -> rx.Component:
     )
 
 
-app = rx.App()
+app = rx.App(
+    theme=rx.theme(
+        appearance="light",
+        has_background=True,
+        accent_color="blue",
+        radius="medium",
+    )
+)
 app.add_page(index)

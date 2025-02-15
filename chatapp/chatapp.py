@@ -29,7 +29,7 @@ def qa(question: str, answer: str) -> rx.Component:
         rx.box(
             rx.text(question, style=style.question_style),
             text_align="left",
-            width="80%",  # Moved uncommon style here
+            style={"alignSelf": "end", "width": "80%"},
         ),
         rx.box(
             rx.text(answer, style=style.answer_style),
@@ -55,11 +55,13 @@ def action_bar() -> rx.Component:
         rx.vstack(
             # Form for enter key submission
             rx.form(
-                rx.input(
+                rx.text_area(  # Changed to rx.text_area
                     value=State.question,
                     placeholder="何でも質問してください...",
                     on_change=State.set_question,
                     style=style.input_style,
+                    word_wrap="break-word",
+                    rows="2",  # Changed to string "2"
                 ),
                 on_submit=State.answer,
                 style=style.form_style,
@@ -112,7 +114,7 @@ def sidebar() -> rx.Component:
             align="start",
             spacing="4",
         ),
-        style=sidebar_style,  # Moved uncommon style here
+        style=sidebar_style,
     )
 
 
@@ -128,8 +130,8 @@ def index() -> rx.Component:
                         size="8",
                         color="black",
                         text_align="center",  # align center here
-                        margin_top="25%",  # Moved uncommon style here
-                        margin_b0ttom="5%",  # Moved uncommon style here
+                        margin_top="25%",
+                        margin_b0ttom="5%",
                     ),
                     rx.box(),  # render empty box when chat_history is not empty
                 ),
@@ -139,7 +141,7 @@ def index() -> rx.Component:
                 spacing="4",
                 width="100%",
             ),
-            style=chat_style,  # Moved uncommon style here
+            style=chat_style,
         ),
         rx.box(
             # dummy empty box in the rightest column

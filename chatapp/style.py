@@ -28,7 +28,7 @@ answer_style = message_style | dict(
     width="100%",
 )
 
-# Input container style # Keep as it might be reused for other input containers
+# Input container style
 input_container_style = dict(
     border="1px solid #E9E9E9",
     border_radius="15px",
@@ -38,7 +38,7 @@ input_container_style = dict(
     box_shadow=shadow,
 )
 
-# Form style # Keep as it might be reused for other forms
+# Form style
 form_style = dict(
     width="100%",
     border="none",
@@ -47,7 +47,7 @@ form_style = dict(
     _focus={"border": "none", "outline": "none", "box_shadow": "none"},
 )
 
-# Input field style # Keep as it is a common input style
+# Input field style
 input_style = dict(
     border="none",
     border_width="0",
@@ -59,6 +59,8 @@ input_style = dict(
     outline="none",
     box_shadow="none",
     font_size="1em",
+    min_height="5em",
+    overflow_y="hidden",  # Changed from auto to hidden
     _focus={
         "border": "none",
         "outline": "none",
@@ -75,14 +77,14 @@ input_style = dict(
     _webkit_box_shadow="none",
 )
 
-# Controls container style # Keep as it might be reused for other control areas
+# Controls container style
 controls_style = dict(
     padding_top="0.5em",
     gap="2",
     width="100%",
 )
 
-# Model select style # Keep as it might be reused for other selects
+# Model select style
 select_style = dict(
     border="1px solid #E9E9E9",
     padding="0.5em",
@@ -93,7 +95,7 @@ select_style = dict(
     min_width="150px",
 )
 
-# Submit button style # Keep as it might be reused for other buttons
+# Submit button style
 button_style = dict(
     background_color="#FFFFFF",
     border="1px solid #E9E9E9",

@@ -1,3 +1,4 @@
+# chatapp.py
 import reflex as rx
 
 from chatapp import style
@@ -94,26 +95,34 @@ def sidebar() -> rx.Component:
 
 
 def index() -> rx.Component:
-    return rx.box(
-        rx.hstack(
-            sidebar(),
-            rx.box(
-                rx.vstack(
+    return rx.grid(
+        sidebar(),
+        rx.box(
+            rx.vstack(
+                rx.cond(  # conditional rendering here
+                    State.chat_history.length() == 0,
                     rx.heading(
-                        "お手伝いできることはありますか?", size="3", color="black"
+                        "お手伝いできることはありますか?",
+                        size="7",
+                        color="black",
                     ),
-                    chat(),
-                    action_bar(),
-                    align="start",
-                    spacing="4",
-                    width="100%",
+                    rx.box(),  # render empty box when chat_history is not empty
                 ),
-                style=style.chat_style,
+                chat(),
+                action_bar(),
+                align="center",
+                spacing="4",
+                width="100%",
             ),
-            width="100%",
-            height="100vh",
-            background_color="white",
+            style=style.chat_style,
         ),
+        rx.box(
+            # dummy empty box in the rightest column
+        ),
+        width="100%",
+        height="100vh",
+        background_color="white",
+        grid_template_columns="repeat(3, 1fr)",  # modified to three columns
     )
 
 

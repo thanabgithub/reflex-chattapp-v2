@@ -156,7 +156,7 @@ class Delta:
         self.reasoning = delta_data.get("reasoning")
 
 
-class AsyncOpenAIOpenRouter:
+class AsyncOpenRouterAI:
     def __init__(self, api_key: str, base_url: str = "https://openrouter.ai/api/v1"):
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -298,45 +298,52 @@ class State(rx.State):
 
     @rx.event(background=True)
     async def process_question(self):
-        """Process the question and get streaming response from Ollama."""
+        """Process the current question and add the Q&A pair to chat history."""
         if not self.question.strip():
             return
 
-        client = AsyncOpenAIOpenRouter(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-        )
-
-        question = self.question
-        answer = ""
-
+        # Store question and clear input before processing
         async with self:
-            self.chat_history.append((question, answer))
-            self._save_current_chat()
-            self.question = ""
             self.processing = True
+            current_question = self.question
+            self.question = ""
+
+            # Add the new question with empty answer
+            self.chat_history.append((current_question, ""))
+            self._save_current_chat()
+
         yield
 
         try:
-            messages = self.format_messages(question)
+            client = AsyncOpenRouterAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
 
-            stream = await client.chat.completions.create(  # await call is correctly placed now
+            messages = self.format_messages(current_question)
+
+            processor = await client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=messages[:-1],  # Exclude the empty answer
                 stream=True,
                 include_reasoning=True,
             )
-            async with stream:  # async with is correctly used with the stream
-                async for chunk in stream:
+
+            async with processor:
+                answer = ""
+                async for chunk in processor:
+                    if not self.processing:
+                        break
+
                     async with self:
                         # Handle both content and reasoning
                         if chunk.reasoning:
                             answer += chunk.reasoning
-                            self.chat_history[-1] = (question, answer)
+                            self.chat_history[-1] = (current_question, answer)
                             self._save_current_chat()
                         if chunk.content:
                             answer += chunk.content
-                            self.chat_history[-1] = (question, answer)
+                            self.chat_history[-1] = (current_question, answer)
                             self._save_current_chat()
 
                     if ENABLE_AUTO_SCROLL_DOWN:
@@ -344,7 +351,7 @@ class State(rx.State):
 
         except Exception as e:
             async with self:
-                self.chat_history[-1] = (question, f"Error: {str(e)}")
+                self.chat_history[-1] = (current_question, f"Error: {str(e)}")
                 self._save_current_chat()
             if ENABLE_AUTO_SCROLL_DOWN:
                 yield rx.call_script(self.scroll_to_bottom_js)
@@ -361,6 +368,8 @@ class State(rx.State):
 
         # Store values before clearing state
         async with self:
+            self.processing = True
+
             new_question = self.question
             current_index = self.editing_index
 
@@ -372,12 +381,11 @@ class State(rx.State):
             # Update the chat history
             self.chat_history[current_index] = (new_question, "")
             self._save_current_chat()
-            self.processing = True
 
         yield
 
         try:
-            client = AsyncOpenAIOpenRouter(
+            client = AsyncOpenRouterAI(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=os.getenv("OPENROUTER_API_KEY"),
             )

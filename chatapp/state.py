@@ -302,33 +302,37 @@ class State(rx.State):
         if not self.question.strip():
             return
 
-        # Store question and clear input before processing
-        async with self:
-            self.processing = True
-            current_question = self.question
-            self.question = ""
-
-            # Add the new question with empty answer
-            self.chat_history.append((current_question, ""))
-            self._save_current_chat()
-
-        yield
+        # Store the current question but don't clear it yet
+        current_question = self.question
 
         try:
+            # Initialize API client
             client = AsyncOpenRouterAI(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=os.getenv("OPENROUTER_API_KEY"),
             )
 
+            # Format messages for the API
             messages = self.format_messages(current_question)
 
+            # Start the stream processor
             processor = await client.chat.completions.create(
                 model=self.model,
-                messages=messages[:-1],  # Exclude the empty answer
+                messages=messages,
                 stream=True,
                 include_reasoning=True,
             )
 
+            # Now that we have a processor, we can safely update the state
+            async with self:
+                self.processing = True
+                self.question = ""  # Clear the input
+                self.chat_history.append((current_question, ""))  # Add new Q&A pair
+                self._save_current_chat()
+
+            yield  # Allow UI to update
+
+            # Process the stream
             async with processor:
                 answer = ""
                 async for chunk in processor:
@@ -336,7 +340,6 @@ class State(rx.State):
                         break
 
                     async with self:
-                        # Handle both content and reasoning
                         if chunk.reasoning:
                             answer += chunk.reasoning
                             self.chat_history[-1] = (current_question, answer)
@@ -350,12 +353,22 @@ class State(rx.State):
                         yield rx.call_script(self.scroll_to_bottom_js)
 
         except Exception as e:
+            # Handle any errors that occur
             async with self:
-                self.chat_history[-1] = (current_question, f"Error: {str(e)}")
+                if (
+                    len(self.chat_history) > 0
+                    and self.chat_history[-1][0] == current_question
+                ):
+                    self.chat_history[-1] = (current_question, f"Error: {str(e)}")
+                else:
+                    self.chat_history.append((current_question, f"Error: {str(e)}"))
                 self._save_current_chat()
+
             if ENABLE_AUTO_SCROLL_DOWN:
                 yield rx.call_script(self.scroll_to_bottom_js)
+
         finally:
+            # Always clean up
             async with self:
                 self.processing = False
             yield

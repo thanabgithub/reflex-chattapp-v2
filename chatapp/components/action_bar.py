@@ -8,7 +8,8 @@ from chatapp import style
 def action_bar() -> rx.Component:
     """The action bar component for user input."""
     return rx.cond(
-        State.editing_index != None,
+        # Update the condition to check both editing states
+        (State.editing_question_index != None) | (State.editing_answer_index != None),
         rx.fragment(),
         rx.box(
             rx.vstack(

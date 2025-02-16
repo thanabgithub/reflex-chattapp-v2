@@ -14,42 +14,52 @@ chat_style = dict(
 )
 
 
-def message_with_context_menu(question: str, answer: str, index: int) -> rx.Component:
-    """Display a message pair with a context menu for editing and deleting."""
-    return rx.context_menu.root(
-        rx.context_menu.trigger(
-            rx.box(
-                # Question container
-                rx.box(
-                    rx.box(
-                        rx.markdown(question, style=style.question_style),
-                        width="100%",  # Inner box takes full width of the 80% container
+def editing_answer_input(index: int) -> rx.Component:
+    """Display the editing interface for an answer."""
+    # Create a style that matches the answer container style
+    answer_edit_container_style = style.input_container_style.copy()
+    answer_edit_container_style.update(
+        {
+            "background_color": "#F9F9F9",  # Match answer background color
+            "border": "1px solid #E9E9E9",  # Match answer border
+            "box_shadow": "none",  # Match answer box shadow
+        }
+    )
+
+    return rx.box(
+        rx.vstack(
+            rx.form(
+                rx.vstack(
+                    rx.text_area(
+                        value=State.answer,
+                        placeholder="Edit the answer...",
+                        on_change=State.set_answer,
+                        style=style.input_style
+                        | {
+                            "background_color": "transparent",  # Keep textarea background transparent
+                        },
                     ),
-                    width="80%",  # Outer box is 80% of the full width
-                    margin_left="20%",  # Push to the right
+                    rx.hstack(
+                        rx.spacer(),
+                        rx.button(
+                            "Cancel",
+                            on_click=State.cancel_editing,
+                            style=style.button_style,
+                        ),
+                        rx.button(
+                            "Update",
+                            type="submit",
+                            style=style.button_style,
+                        ),
+                        justify="end",
+                        width="100%",
+                    ),
                 ),
-                # Answer container
-                rx.box(
-                    rx.markdown(answer, style=style.answer_style),
-                    width="100%",
-                ),
-                margin_y="1em",
-                width="100%",  # Full width container for both Q&A
+                on_submit=State.update_answer,
             ),
+            width="100%",
         ),
-        rx.context_menu.content(
-            rx.context_menu.item(
-                "Edit Question",
-                on_click=lambda: State.start_editing(index),
-            ),
-            rx.context_menu.separator(),
-            rx.context_menu.item(
-                "Delete Message",
-                color_scheme="red",
-                on_click=lambda: State.delete_message(index),
-            ),
-            style=style.context_menu_style,
-        ),
+        style=answer_edit_container_style,
     )
 
 
@@ -101,12 +111,66 @@ def editing_question_input(index: int) -> rx.Component:
     )
 
 
+def message_with_context_menu(question: str, answer: str, index: int) -> rx.Component:
+    """Display a message pair with a context menu for editing and deleting."""
+    return rx.context_menu.root(
+        rx.context_menu.trigger(
+            rx.box(
+                # Question container
+                rx.box(
+                    rx.box(
+                        rx.markdown(question, style=style.question_style),
+                        width="100%",
+                    ),
+                    width="80%",
+                    margin_left="20%",
+                ),
+                # Answer container with its own context menu
+                rx.context_menu.root(
+                    rx.context_menu.trigger(
+                        rx.box(
+                            rx.markdown(answer, style=style.answer_style),
+                            width="100%",
+                        ),
+                    ),
+                    rx.context_menu.content(
+                        rx.context_menu.item(
+                            "Edit Answer",
+                            on_click=lambda: State.start_editing_answer(index),
+                        ),
+                        style=style.context_menu_style,
+                    ),
+                ),
+                margin_y="1em",
+                width="100%",
+            ),
+        ),
+        rx.context_menu.content(
+            rx.context_menu.item(
+                "Edit Question",
+                on_click=lambda: State.start_editing_question(index),
+            ),
+            rx.context_menu.separator(),
+            rx.context_menu.item(
+                "Delete Message",
+                color_scheme="red",
+                on_click=lambda: State.delete_message(index),
+            ),
+            style=style.context_menu_style,
+        ),
+    )
+
+
 def qa(question: str, answer: str, index: int) -> rx.Component:
     """Display a question and answer pair."""
     return rx.cond(
-        State.editing_index == index,
+        State.editing_question_index == index,
         editing_question_input(index),
-        message_with_context_menu(question, answer, index),
+        rx.cond(
+            State.editing_answer_index == index,
+            editing_answer_input(index),
+            message_with_context_menu(question, answer, index),
+        ),
     )
 
 

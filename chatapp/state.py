@@ -36,6 +36,9 @@ class State(rx.State):
     # Editing
     editing_question: Optional[str] = None
     editing_index: Optional[int] = None
+    editing_question_index: Optional[int] = None
+    editing_answer_index: Optional[int] = None
+    answer: str = ""
 
     # Conversation management
     chats: Dict[str, List[Tuple[str, str]]] = {"New Chat": []}
@@ -253,18 +256,19 @@ if (chatContainer) {
     @rx.event(background=True)
     async def update_question(self):
         """Update an existing question with new text."""
-        if self.editing_index is None or not self.question.strip():
+        if (
+            self.editing_question_index is None or not self.question.strip()
+        ):  # Changed from editing_index
             return
 
         # Store values before clearing state
         async with self:
             new_question = self.question
-            current_index = self.editing_index
+            current_index = self.editing_question_index  # Changed from editing_index
             original_answer = self.chat_history[current_index][1]
 
             # Reset editing state
-            self.editing_index = None
-            self.editing_question = None
+            self.editing_question_index = None  # Changed from editing_index
             self.question = ""
 
             # Update the chat history
@@ -319,3 +323,40 @@ if (chatContainer) {
         self.chat_history.pop(index)
         # Save the updated chat history
         self._save_current_chat()
+
+    def start_editing_question(self, index: int):
+        """Start editing a specific question."""
+        self.editing_question_index = index
+        self.question = self.chat_history[index][0]
+        self.editing_answer_index = None
+
+    def start_editing_answer(self, index: int):
+        """Start editing a specific answer."""
+        self.editing_answer_index = index
+        self.answer = self.chat_history[index][1]
+        self.editing_question_index = None
+
+    def cancel_editing(self):
+        """Cancel editing mode."""
+        self.editing_question_index = None
+        self.editing_answer_index = None
+        self.question = ""
+        self.answer = ""
+
+    def update_answer(self):
+        """Update an existing answer with new text."""
+        if self.editing_answer_index is None or not self.answer.strip():
+            return
+
+        # Update the answer in chat history
+        index = self.editing_answer_index
+        question = self.chat_history[index][0]
+        new_answer = self.answer
+
+        # Update the chat history
+        self.chat_history[index] = (question, new_answer)
+        self._save_current_chat()
+
+        # Reset editing state
+        self.editing_answer_index = None
+        self.answer = ""

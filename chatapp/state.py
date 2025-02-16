@@ -1,66 +1,53 @@
+"""State management for the chat app."""
+
 import os
+from typing import List, Tuple
+import openai
 from openai import AsyncOpenAI
-from dotenv import load_dotenv
 import reflex as rx
+from dotenv import load_dotenv
 
 load_dotenv()
 
 
+class QA(rx.Base):
+    """A question and answer pair."""
+
+    question: str
+    answer: str
+
+
 class State(rx.State):
-    # The current question being asked
+    """The app state."""
+
+    # Chat state
+    chat_history: List[Tuple[str, str]] = []
     question: str = ""
-
-    # The selected model
     model: str = "deepseek/deepseek-r1"
-
-    # Chat history as list of (question, answer) tuples
-    chat_history: list[tuple[str, str]] = []
-
     previous_keydown_character: str = ""
 
+    # UI state
+    processing: bool = False
+    modal_open: bool = False
+
     # Conversation history
-    history: list[str] = ["会話 1", "会話 2", "会話 3", "会話 4", "会話 5"]
+    history: List[str] = ["New Chat"]
+    current_chat: str = "New Chat"
 
-    def format_messages(self):
-        """Format chat history into the required message structure"""
-        messages = []
-
-        # Add previous chat history
-        for question, answer in self.chat_history:
-            # Add user message
-            messages.append(
-                {"role": "user", "content": [{"type": "text", "text": question}]}
-            )
-
-            # Add assistant message
-            messages.append(
-                {"role": "assistant", "content": [{"type": "text", "text": answer}]}
-            )
-
-        # Add the current question
-        messages.append(
-            {"role": "user", "content": [{"type": "text", "text": self.question}]}
-        )
-
-        return messages
-
-    def new_thread(self):
-        """Start a new chat thread."""
+    def create_new_chat(self):
+        """Create a new chat session."""
         self.chat_history = []
-        self.question = ""
+        self.processing = False
 
     def load_chat(self, chat_id: str):
         """Load a specific chat history."""
         # In a real app, this would load from a database
         self.chat_history = []
-
-    def set_model(self, model: str):
-        """Set the model to use for chat."""
-        self.model = model
-        print(self.model)
+        self.current_chat = chat_id
 
     @rx.event
     def handle_keydown(self, keydown_character: str):
+        """Handle keyboard shortcuts."""
         if (
             self.previous_keydown_character == "Control"
             and keydown_character == "Enter"
@@ -70,41 +57,44 @@ class State(rx.State):
 
     @rx.event
     async def process_question(self):
-        """Generate an AI response."""
-        # Our chatbot has some brains now!
+        """Process the question and get a response from the API."""
+        if not self.question.strip():
+            return
+
         client = AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
-            api_key=os.environ["OPENROUTER_API_KEY"],
+            api_key=os.getenv("OPENROUTER_API_KEY"),
         )
 
-        # Get formatted message history
-        messages = self.format_messages()
-        print(f"model: {self.model}")
-        session = await client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            stop=None,
-            temperature=0.7,
-            stream=True,
-        )
-
-        # Add to the answer as the chatbot responds.
+        # Add to the chat history
         answer = ""
         self.chat_history.append((self.question, answer))
-
-        # Clear the question input.
+        # Clear the input
+        question = self.question
         self.question = ""
-        # Yield here to clear the frontend input before continuing.
+        self.processing = True
         yield
 
-        async for item in session:
-            if hasattr(item.choices[0].delta, "content"):
-                if item.choices[0].delta.content is None:
-                    # presence of 'None' indicates the end of the response
-                    break
-                answer += item.choices[0].delta.content
-                self.chat_history[-1] = (
-                    self.chat_history[-1][0],
-                    answer,
-                )
-                yield
+        try:
+            session = await client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": question}],
+                stream=True,
+            )
+
+            async for item in session:
+                if hasattr(item.choices[0].delta, "content"):
+                    if item.choices[0].delta.content is None:
+                        break
+                    answer += item.choices[0].delta.content
+                    self.chat_history[-1] = (
+                        self.chat_history[-1][0],
+                        answer,
+                    )
+                    yield
+
+        except Exception as e:
+            self.chat_history[-1] = (self.chat_history[-1][0], f"Error: {str(e)}")
+
+        finally:
+            self.processing = False

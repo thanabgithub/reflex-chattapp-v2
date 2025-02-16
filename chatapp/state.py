@@ -26,101 +26,105 @@ class StreamChunk:
 
 
 class StreamProcessor:
+    """Improved stream processor that handles long responses and reasoning tokens."""
+
     def __init__(self, response, session):
         self.response = response
         self.session = session
-        self.queue: Queue[StreamChunk] = Queue()
-        self._task: Optional[asyncio.Task] = None
+        self.buffer = ""
         self._closed = False
-        self._buffer = ""
+        self._done = False
+        self._complete_messages = []
+        self._current_message = {"content": "", "reasoning": ""}
         self._lock = asyncio.Lock()
 
     async def start(self):
-        """Start processing the stream in the background."""
-        self._task = asyncio.create_task(self._process_stream())
+        """Start processing the stream."""
         return self
 
-    async def _read_chunk(self) -> Optional[str]:
-        """Read a chunk from the response with proper locking."""
-        async with self._lock:
+    async def _process_line(self, line):
+        """Process a single line of SSE data."""
+        if line.startswith("data: "):
+            data = line[6:]
+            if data == "[DONE]":
+                self._done = True
+                return True
+
             try:
-                chunk = await self.response.content.readline()
-                return chunk.decode("utf-8") if chunk else None
-            except Exception:
-                return None
+                data_obj = json.loads(data)
+                chunk = ChatCompletionChunk(data_obj)
 
-    async def _process_stream(self):
-        """Process the stream and put chunks into the queue."""
+                if chunk.choices:
+                    choice = chunk.choices[0]
+                    delta = choice.delta
+
+                    # Store both content and reasoning from this chunk
+                    if delta.content is not None:
+                        self._current_message["content"] += delta.content
+                    if delta.reasoning is not None:
+                        self._current_message["reasoning"] += delta.reasoning
+
+                    # Create a StreamChunk with all available data
+                    return StreamChunk(
+                        content=delta.content, reasoning=delta.reasoning, is_done=False
+                    )
+
+            except json.JSONDecodeError:
+                pass
+        return None
+
+    async def _read_chunk(self):
+        """Read a chunk from the response and process it."""
         try:
-            while not self._closed:
-                line = await self._read_chunk()
-                if not line:
-                    break
-
-                line = line.strip()
-                if line.startswith("data: "):
-                    data = line[6:]
-                    if data == "[DONE]":
-                        await self.queue.put(StreamChunk(is_done=True))
-                        break
-
-                    try:
-                        data_obj = json.loads(data)
-                        chunk = ChatCompletionChunk(data_obj)
-
-                        if chunk.choices:
-                            delta = chunk.choices[0].delta
-                            if delta.content is not None:
-                                await self.queue.put(StreamChunk(content=delta.content))
-                            elif delta.reasoning is not None:
-                                await self.queue.put(
-                                    StreamChunk(reasoning=delta.reasoning)
-                                )
-
-                            if chunk.choices[0].finish_reason is not None:
-                                await self.queue.put(StreamChunk(is_done=True))
-                                break
-
-                    except json.JSONDecodeError:
-                        continue
-
-            # End of stream
-            if not self._closed:
-                await self.queue.put(StreamChunk(is_done=True))
-
+            chunk = await self.response.content.read(1024)
+            if not chunk:
+                return None
+            return chunk.decode("utf-8")
         except Exception as e:
-            if not self._closed:
-                await self.queue.put(StreamChunk(error=str(e)))
-        finally:
-            await self.close()
+            return None
 
     async def __aiter__(self):
-        """Iterate over the stream chunks."""
-        try:
-            while True:
-                chunk = await self.queue.get()
-                if chunk.error:
-                    raise Exception(chunk.error)
-                if chunk.is_done:
+        """Iterate over the stream chunks with improved error handling."""
+        while not self._done and not self._closed:
+            try:
+                chunk = await self._read_chunk()
+                if not chunk:
                     break
-                yield chunk
-                self.queue.task_done()
-        except asyncio.CancelledError:
+
+                self.buffer += chunk
+
+                while True:
+                    line_end = self.buffer.find("\n")
+                    if line_end == -1:
+                        break
+
+                    line = self.buffer[:line_end].strip()
+                    self.buffer = self.buffer[line_end + 1 :]
+
+                    result = await self._process_line(line)
+                    if result:
+                        if result.is_done:
+                            self._done = True
+                            break
+                        if result.content is not None or result.reasoning is not None:
+                            yield result
+
+            except Exception as e:
+                # Log error if needed
+                break
+
+        # Final cleanup
+        if not self._closed:
             await self.close()
-            raise
 
     async def close(self):
-        """Close the stream processor."""
+        """Close the stream processor and clean up resources."""
         if not self._closed:
             self._closed = True
-            if self._task and not self._task.done():
-                self._task.cancel()
-                try:
-                    await self._task
-                except asyncio.CancelledError:
-                    pass
-            await self.response.release()
-            await self.session.close()
+            if self.response:
+                await self.response.release()
+            if self.session:
+                await self.session.close()
 
     async def __aenter__(self):
         await self.start()
@@ -193,7 +197,7 @@ class AsyncOpenAIOpenRouter:
                 if not stream:
                     try:
                         data = await response.json()
-                        return ChatCompletion(data)
+                        return ChatCompletionChunk(data)
                     finally:
                         await session.close()
 
@@ -294,7 +298,7 @@ class State(rx.State):
 
     @rx.event(background=True)
     async def process_question(self):
-        """Process the question and get a response with both reasoning and content."""
+        """Process the question and get streaming response from Ollama."""
         if not self.question.strip():
             return
 
@@ -316,19 +320,21 @@ class State(rx.State):
         try:
             messages = self.format_messages(question)
 
-            async with await client.chat.completions.create(
-                model=self.model, messages=messages, stream=True, include_reasoning=True
-            ) as stream:
+            stream = await client.chat.completions.create(  # await call is correctly placed now
+                model=self.model,
+                messages=messages,
+                stream=True,
+                include_reasoning=True,
+            )
+            async with stream:  # async with is correctly used with the stream
                 async for chunk in stream:
                     async with self:
-                        if not self.processing:
-                            break
-
-                        if chunk.reasoning is not None:
+                        # Handle both content and reasoning
+                        if chunk.reasoning:
                             answer += chunk.reasoning
                             self.chat_history[-1] = (question, answer)
                             self._save_current_chat()
-                        elif chunk.content is not None:
+                        if chunk.content:
                             answer += chunk.content
                             self.chat_history[-1] = (question, answer)
                             self._save_current_chat()
@@ -353,10 +359,10 @@ class State(rx.State):
         if self.editing_index is None or not self.question.strip():
             return
 
+        # Store values before clearing state
         async with self:
             new_question = self.question
             current_index = self.editing_index
-            original_answer = self.chat_history[current_index][1]
 
             # Reset editing state
             self.editing_index = None
@@ -378,23 +384,26 @@ class State(rx.State):
 
             messages = self.format_messages(new_question)
 
-            async with await client.chat.completions.create(
+            processor = await client.chat.completions.create(
                 model=self.model,
                 messages=messages[: 2 * current_index + 1],
                 stream=True,
                 include_reasoning=True,
-            ) as stream:
-                answer = ""
-                async for chunk in stream:
-                    async with self:
-                        if not self.processing:
-                            break
+            )
 
-                        if chunk.reasoning is not None:
+            async with processor:
+                answer = ""
+                async for chunk in processor:
+                    if not self.processing:
+                        break
+
+                    async with self:
+                        # Handle both content and reasoning
+                        if chunk.reasoning:
                             answer += chunk.reasoning
                             self.chat_history[current_index] = (new_question, answer)
                             self._save_current_chat()
-                        elif chunk.content is not None:
+                        if chunk.content:
                             answer += chunk.content
                             self.chat_history[current_index] = (new_question, answer)
                             self._save_current_chat()

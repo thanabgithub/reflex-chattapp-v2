@@ -16,6 +16,8 @@ class State(rx.State):
     # Chat history as list of (question, answer) tuples
     chat_history: list[tuple[str, str]] = []
 
+    previous_keydown_character: str = ""
+
     # Conversation history
     history: list[str] = ["会話 1", "会話 2", "会話 3", "会話 4", "会話 5"]
 
@@ -56,6 +58,15 @@ class State(rx.State):
         """Set the model to use for chat."""
         self.model = model
         print(self.model)
+
+    @rx.event
+    def handle_keydown(self, keydown_character: str):
+        if (
+            self.previous_keydown_character == "Control"
+            and keydown_character == "Enter"
+        ):
+            return State.answer
+        self.previous_keydown_character = keydown_character
 
     async def answer(self):
         """Generate an AI response."""

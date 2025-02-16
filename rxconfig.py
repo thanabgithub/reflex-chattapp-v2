@@ -10,6 +10,4 @@ class LogLevel(str, Enum):
     CRITICAL = "critical"
 
 
-config = rx.Config(
-    app_name="chatapp",
-)
+config = rx.Config(app_name="chatapp", env=rx.Env.DEV)

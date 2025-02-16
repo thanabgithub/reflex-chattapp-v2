@@ -27,15 +27,15 @@ sidebar_style = dict(
 def qa(question: str, answer: str) -> rx.Component:
     return rx.fragment(
         rx.box(
-            rx.text(question, style=style.question_style),
+            rx.markdown(question, style=style.question_style),
             text_align="left",
-            style={"alignSelf": "end", "width": "80%"},
         ),
         rx.box(
-            rx.text(answer, style=style.answer_style),
+            rx.markdown(answer, style=style.answer_style),
             text_align="left",
-            width="100%",  # set width 100% for answer
+            width="100%",
         ),
+        margin_y="1em",
     )
 
 
@@ -61,7 +61,7 @@ def action_bar() -> rx.Component:
                     on_change=State.set_question,
                     style=style.input_style,
                     word_wrap="break-word",
-                    rows="2",  # Changed to string "2"
+                    on_key_down=State.handle_keydown,
                 ),
                 on_submit=State.answer,
                 style=style.form_style,
@@ -157,7 +157,7 @@ app = rx.App(
     theme=rx.theme(
         appearance="light",
         has_background=True,
-        accent_color="blue",
+        accent_color="gray",
         radius="medium",
     )
 )

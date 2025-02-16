@@ -138,7 +138,7 @@ class State(rx.State):
             async for item in session:
                 async with self:
                     if not self.processing:
-                        session.close()
+                        await session.close()
                         break
 
                     if hasattr(item.choices[0].delta, "content"):
@@ -147,13 +147,15 @@ class State(rx.State):
                         answer += item.choices[0].delta.content
                         self.chat_history[-1] = (question, answer)
                         self._save_current_chat()
-                yield rx.call_script(self.scroll_to_bottom_js)
+                if ENABLE_AUTO_SCROLL_DOWN:
+                    yield rx.call_script(self.scroll_to_bottom_js)
 
         except Exception as e:
             async with self:
                 self.chat_history[-1] = (question, f"Error: {str(e)}")
                 self._save_current_chat()
-            yield rx.call_script(self.scroll_to_bottom_js)
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
         finally:
             async with self:
                 self.processing = False
@@ -199,13 +201,15 @@ class State(rx.State):
                         answer += item.choices[0].delta.content
                         self.chat_history[-1] = (question, answer)
                         self._save_current_chat()
-                yield rx.call_script(self.scroll_to_bottom_js)
+                if ENABLE_AUTO_SCROLL_DOWN:
+                    yield rx.call_script(self.scroll_to_bottom_js)
 
         except Exception as e:
             async with self:
                 self.chat_history[-1] = (question, f"Error: {str(e)}")
                 self._save_current_chat()
-            yield rx.call_script(self.scroll_to_bottom_js)
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
         finally:
             async with self:
                 self.processing = False

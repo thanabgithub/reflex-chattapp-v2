@@ -26,10 +26,11 @@ def action_bar() -> rx.Component:
                                 rx.select(
                                     [
                                         "deepseek/deepseek-r1",
+                                        "aion-labs/aion-1.0",
                                         "openai/gpt-4o-mini",
                                         "google/gemini-2.0-flash-thinking-exp:free",
                                     ],
-                                    placeholder="deepseek/deepseek-r1",
+                                    placeholder=State.model,
                                     disabled=State.processing,
                                     on_change=State.set_model,
                                     style=style.select_style,

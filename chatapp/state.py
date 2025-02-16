@@ -13,16 +13,129 @@ import json
 from typing import *
 import aiohttp
 import asyncio
+from asyncio import Queue
+from dataclasses import dataclass
 
 
-class ChatCompletion:
-    def __init__(self, response_data: Dict[str, Any]):
-        self.choices = response_data.get("choices", [])
-        self.id = response_data.get("id")
-        self.model = response_data.get("model")
-        self.created = response_data.get("created")
-        self.usage = response_data.get("usage")
-        self.response_type = response_data.get("response_type", "content")
+@dataclass
+class StreamChunk:
+    content: Optional[str] = None
+    reasoning: Optional[str] = None
+    is_done: bool = False
+    error: Optional[str] = None
+
+
+class StreamProcessor:
+    def __init__(self, response, session):
+        self.response = response
+        self.session = session
+        self.queue: Queue[StreamChunk] = Queue()
+        self._task: Optional[asyncio.Task] = None
+        self._closed = False
+        self._buffer = ""
+        self._lock = asyncio.Lock()
+
+    async def start(self):
+        """Start processing the stream in the background."""
+        self._task = asyncio.create_task(self._process_stream())
+        return self
+
+    async def _read_chunk(self) -> Optional[str]:
+        """Read a chunk from the response with proper locking."""
+        async with self._lock:
+            try:
+                chunk = await self.response.content.readline()
+                return chunk.decode("utf-8") if chunk else None
+            except Exception:
+                return None
+
+    async def _process_stream(self):
+        """Process the stream and put chunks into the queue."""
+        try:
+            while not self._closed:
+                line = await self._read_chunk()
+                if not line:
+                    break
+
+                line = line.strip()
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data == "[DONE]":
+                        await self.queue.put(StreamChunk(is_done=True))
+                        break
+
+                    try:
+                        data_obj = json.loads(data)
+                        chunk = ChatCompletionChunk(data_obj)
+
+                        if chunk.choices:
+                            delta = chunk.choices[0].delta
+                            if delta.content is not None:
+                                await self.queue.put(StreamChunk(content=delta.content))
+                            elif delta.reasoning is not None:
+                                await self.queue.put(
+                                    StreamChunk(reasoning=delta.reasoning)
+                                )
+
+                            if chunk.choices[0].finish_reason is not None:
+                                await self.queue.put(StreamChunk(is_done=True))
+                                break
+
+                    except json.JSONDecodeError:
+                        continue
+
+            # End of stream
+            if not self._closed:
+                await self.queue.put(StreamChunk(is_done=True))
+
+        except Exception as e:
+            if not self._closed:
+                await self.queue.put(StreamChunk(error=str(e)))
+        finally:
+            await self.close()
+
+    async def __aiter__(self):
+        """Iterate over the stream chunks."""
+        try:
+            while True:
+                chunk = await self.queue.get()
+                if chunk.error:
+                    raise Exception(chunk.error)
+                if chunk.is_done:
+                    break
+                yield chunk
+                self.queue.task_done()
+        except asyncio.CancelledError:
+            await self.close()
+            raise
+
+    async def close(self):
+        """Close the stream processor."""
+        if not self._closed:
+            self._closed = True
+            if self._task and not self._task.done():
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+            await self.response.release()
+            await self.session.close()
+
+    async def __aenter__(self):
+        await self.start()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+
+class ChatCompletionChunk:
+    def __init__(self, chunk_data: Dict[str, Any]):
+        self.choices = [Choice(choice) for choice in chunk_data.get("choices", [])]
+        self.id = chunk_data.get("id")
+        self.model = chunk_data.get("model")
+        self.created = chunk_data.get("created")
 
 
 class Choice:
@@ -37,91 +150,6 @@ class Delta:
         self.content = delta_data.get("content")
         self.role = delta_data.get("role")
         self.reasoning = delta_data.get("reasoning")
-
-
-class ChatCompletionChunk:
-    def __init__(self, chunk_data: Dict[str, Any], response_type: str = "content"):
-        self.choices = [Choice(choice) for choice in chunk_data.get("choices", [])]
-        self.id = chunk_data.get("id")
-        self.model = chunk_data.get("model")
-        self.created = chunk_data.get("created")
-        self.response_type = response_type
-
-
-class StreamResponse:
-    """Wrapper for streaming response that combines reasoning and content."""
-
-    def __init__(self, response, session, include_reasoning: bool = True):
-        self.response = response
-        self.session = session
-        self.buffer = ""
-        self._closed = False
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        if self._closed:
-            raise StopAsyncIteration
-
-        try:
-            chunk = await self.response.content.read(1024)
-            if not chunk:
-                await self.close()
-                raise StopAsyncIteration
-
-            self.buffer += chunk.decode("utf-8")
-            while True:
-                line_end = self.buffer.find("\n")
-                if line_end == -1:
-                    break
-
-                line = self.buffer[:line_end].strip()
-                self.buffer = self.buffer[line_end + 1 :]
-
-                if line.startswith("data: "):
-                    data = line[6:]
-                    if data == "[DONE]":
-                        await self.close()
-                        raise StopAsyncIteration
-
-                    try:
-                        data_obj = json.loads(data)
-                        chunk = ChatCompletionChunk(data_obj)
-
-                        if not chunk.choices:
-                            continue
-
-                        choice = chunk.choices[0]
-                        delta = choice.delta
-
-                        # Return any non-null content, whether it's reasoning or content
-                        if delta.reasoning is not None:
-                            return chunk
-                        if delta.content is not None:
-                            return chunk
-
-                    except json.JSONDecodeError:
-                        continue
-
-            return await self.__anext__()
-
-        except Exception as e:
-            await self.close()
-            raise StopAsyncIteration
-
-    async def close(self):
-        """Properly close both response and session."""
-        if not self._closed:
-            self._closed = True
-            await self.response.release()
-            await self.session.close()
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
 
 
 class AsyncOpenAIOpenRouter:
@@ -142,8 +170,8 @@ class AsyncOpenAIOpenRouter:
             stream: bool = False,
             include_reasoning: bool = False,
             **kwargs,
-        ) -> Union[ChatCompletion, StreamResponse]:
-            """Create a chat completion with proper session management."""
+        ) -> Union[ChatCompletionChunk, StreamProcessor]:
+            """Create a chat completion with queue-based streaming."""
             url = f"{self.client.base_url}/chat/completions"
             headers = {
                 "Authorization": f"Bearer {self.client.api_key}",
@@ -169,7 +197,8 @@ class AsyncOpenAIOpenRouter:
                     finally:
                         await session.close()
 
-                return StreamResponse(response, session, include_reasoning)
+                return await StreamProcessor(response, session).start()
+
             except Exception as e:
                 await session.close()
                 raise
@@ -288,24 +317,19 @@ class State(rx.State):
             messages = self.format_messages(question)
 
             async with await client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=True,
-                include_reasoning=True,  # Enable reasoning in the API call
-            ) as session:
-                async for item in session:
+                model=self.model, messages=messages, stream=True, include_reasoning=True
+            ) as stream:
+                async for chunk in stream:
                     async with self:
                         if not self.processing:
                             break
 
-                        delta = item.choices[0].delta
-                        # Add either reasoning or content to the answer
-                        if delta.reasoning is not None:
-                            answer += delta.reasoning
+                        if chunk.reasoning is not None:
+                            answer += chunk.reasoning
                             self.chat_history[-1] = (question, answer)
                             self._save_current_chat()
-                        elif delta.content is not None:
-                            answer += delta.content
+                        elif chunk.content is not None:
+                            answer += chunk.content
                             self.chat_history[-1] = (question, answer)
                             self._save_current_chat()
 
@@ -315,6 +339,72 @@ class State(rx.State):
         except Exception as e:
             async with self:
                 self.chat_history[-1] = (question, f"Error: {str(e)}")
+                self._save_current_chat()
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
+        finally:
+            async with self:
+                self.processing = False
+            yield
+
+    @rx.event(background=True)
+    async def update_question(self):
+        """Update an existing question with new text."""
+        if self.editing_index is None or not self.question.strip():
+            return
+
+        async with self:
+            new_question = self.question
+            current_index = self.editing_index
+            original_answer = self.chat_history[current_index][1]
+
+            # Reset editing state
+            self.editing_index = None
+            self.editing_question = None
+            self.question = ""
+
+            # Update the chat history
+            self.chat_history[current_index] = (new_question, "")
+            self._save_current_chat()
+            self.processing = True
+
+        yield
+
+        try:
+            client = AsyncOpenAIOpenRouter(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
+
+            messages = self.format_messages(new_question)
+
+            async with await client.chat.completions.create(
+                model=self.model,
+                messages=messages[: 2 * current_index + 1],
+                stream=True,
+                include_reasoning=True,
+            ) as stream:
+                answer = ""
+                async for chunk in stream:
+                    async with self:
+                        if not self.processing:
+                            break
+
+                        if chunk.reasoning is not None:
+                            answer += chunk.reasoning
+                            self.chat_history[current_index] = (new_question, answer)
+                            self._save_current_chat()
+                        elif chunk.content is not None:
+                            answer += chunk.content
+                            self.chat_history[current_index] = (new_question, answer)
+                            self._save_current_chat()
+
+                    if ENABLE_AUTO_SCROLL_DOWN:
+                        yield rx.call_script(self.scroll_to_bottom_js)
+
+        except Exception as e:
+            async with self:
+                self.chat_history[current_index] = (new_question, f"Error: {str(e)}")
                 self._save_current_chat()
             if ENABLE_AUTO_SCROLL_DOWN:
                 yield rx.call_script(self.scroll_to_bottom_js)
@@ -357,75 +447,6 @@ if (chatContainer) {
         self.editing_index = None
         self.editing_question = None
         self.question = ""
-
-    @rx.event(background=True)
-    async def update_question(self):
-        """Update an existing question with new text."""
-        if self.editing_index is None or not self.question.strip():
-            return
-
-        # Store values before clearing state
-        async with self:
-            new_question = self.question
-            current_index = self.editing_index
-            original_answer = self.chat_history[current_index][1]
-
-            # Reset editing state
-            self.editing_index = None
-            self.editing_question = None
-            self.question = ""
-
-            # Update the chat history
-            self.chat_history[current_index] = (new_question, "")
-            self._save_current_chat()
-            self.processing = True
-
-        yield
-
-        try:
-            client = AsyncOpenAIOpenRouter(
-                base_url="https://openrouter.ai/api/v1",
-                api_key=os.getenv("OPENROUTER_API_KEY"),
-            )
-
-            messages = self.format_messages(new_question)
-
-            async with await client.chat.completions.create(
-                model=self.model,
-                messages=messages[: 2 * current_index + 1],
-                stream=True,
-                include_reasoning=True,  # Enable reasoning in the API call
-            ) as session:
-                answer = ""
-                async for item in session:
-                    async with self:
-                        if not self.processing:
-                            break
-
-                        delta = item.choices[0].delta
-                        # Add either reasoning or content to the answer
-                        if delta.reasoning is not None:
-                            answer += delta.reasoning
-                            self.chat_history[current_index] = (new_question, answer)
-                            self._save_current_chat()
-                        elif delta.content is not None:
-                            answer += delta.content
-                            self.chat_history[current_index] = (new_question, answer)
-                            self._save_current_chat()
-
-                    if ENABLE_AUTO_SCROLL_DOWN:
-                        yield rx.call_script(self.scroll_to_bottom_js)
-
-        except Exception as e:
-            async with self:
-                self.chat_history[current_index] = (new_question, f"Error: {str(e)}")
-                self._save_current_chat()
-            if ENABLE_AUTO_SCROLL_DOWN:
-                yield rx.call_script(self.scroll_to_bottom_js)
-        finally:
-            async with self:
-                self.processing = False
-            yield
 
     def delete_message(self, index: int):
         """Delete a specific message from chat history."""

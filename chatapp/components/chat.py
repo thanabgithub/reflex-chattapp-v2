@@ -3,7 +3,6 @@
 import reflex as rx
 from chatapp.state import State
 from chatapp import style
-from chatapp.components.action_bar import action_bar
 
 chat_style = dict(
     padding="2em",
@@ -15,19 +14,39 @@ chat_style = dict(
 )
 
 
-def question_display(question: str, index: int) -> rx.Component:
-    """Display a question with context menu for editing."""
+def message_with_context_menu(question: str, answer: str, index: int) -> rx.Component:
+    """Display a message pair with a context menu for editing and deleting."""
     return rx.context_menu.root(
         rx.context_menu.trigger(
             rx.box(
-                rx.markdown(question, style=style.question_style),
-                text_align="left",
+                # Question container
+                rx.box(
+                    rx.box(
+                        rx.markdown(question, style=style.question_style),
+                        width="100%",  # Inner box takes full width of the 80% container
+                    ),
+                    width="80%",  # Outer box is 80% of the full width
+                    margin_left="20%",  # Push to the right
+                ),
+                # Answer container
+                rx.box(
+                    rx.markdown(answer, style=style.answer_style),
+                    width="100%",
+                ),
+                margin_y="1em",
+                width="100%",  # Full width container for both Q&A
             ),
         ),
         rx.context_menu.content(
             rx.context_menu.item(
                 "Edit Question",
                 on_click=lambda: State.start_editing(index),
+            ),
+            rx.context_menu.separator(),
+            rx.context_menu.item(
+                "Delete Message",
+                color_scheme="red",
+                on_click=lambda: State.delete_message(index),
             ),
             style=style.context_menu_style,
         ),
@@ -71,18 +90,10 @@ def editing_question_input(index: int) -> rx.Component:
 
 def qa(question: str, answer: str, index: int) -> rx.Component:
     """Display a question and answer pair."""
-    return rx.fragment(
-        rx.cond(
-            State.editing_index == index,
-            editing_question_input(index),
-            question_display(question, index),
-        ),
-        rx.box(
-            rx.markdown(answer, style=style.answer_style),
-            text_align="left",
-            width="100%",
-        ),
-        margin_y="1em",
+    return rx.cond(
+        State.editing_index == index,
+        editing_question_input(index),
+        message_with_context_menu(question, answer, index),
     )
 
 

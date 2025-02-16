@@ -4,7 +4,8 @@
 shadow = "rgba(0, 0, 0, 0.15) 0px 2px 8px"
 message_style = dict(
     padding_inline="1em",
-    border_radius="5px",
+    margin_block="0.25em",
+    border_radius="1rem",
     display="inline-block",
     color="black",
 )
@@ -64,7 +65,7 @@ controls_style = dict(
 select_style = dict(
     border="1px solid #E9E9E9",
     padding="0.5em",
-    border_radius="8px",
+    border_radius="1em",
     background_color="#F5F5F5",
     color="black",
     width="auto",

@@ -306,3 +306,10 @@ if (chatContainer) {
             async with self:
                 self.processing = False
             yield
+
+    def delete_message(self, index: int):
+        """Delete a specific message from chat history."""
+        # Remove the message at the specified index
+        self.chat_history.pop(index)
+        # Save the updated chat history
+        self._save_current_chat()

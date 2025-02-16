@@ -60,8 +60,7 @@ def action_bar() -> rx.Component:
                     placeholder="何でも質問してください...",
                     on_change=State.set_question,
                     style=style.input_style,
-                    word_wrap="break-word",
-                    on_key_down=State.handle_keydown,
+                    on_key_down=State.handle_keydown,  # to track for ctrl + Enter
                 ),
                 on_submit=State.answer,
                 style=style.form_style,

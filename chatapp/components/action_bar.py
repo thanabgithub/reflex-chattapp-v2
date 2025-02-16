@@ -33,17 +33,25 @@ def action_bar() -> rx.Component:
                             ),
                         ),
                         rx.spacer(),
-                        rx.button(
-                            rx.cond(
-                                State.processing,
-                                rx.spinner(),
-                                rx.icon("arrow-right"),
+                        rx.cond(
+                            State.processing,
+                            rx.button(
+                                rx.icon("circle-stop", color="crimson"),
+                                on_click=State.stop_process,
+                                style=dict(
+                                    background_color="transparent",
+                                    border="0px solid #E9E9E9",
+                                    color="black",
+                                ),
                             ),
-                            on_click=State.process_question,
-                            style=dict(
-                                background_color="transparent",
-                                border="0px solid #E9E9E9",
-                                color="black",
+                            rx.button(
+                                rx.icon("arrow-right"),
+                                on_click=State.process_question,
+                                style=dict(
+                                    background_color="transparent",
+                                    border="0px solid #E9E9E9",
+                                    color="black",
+                                ),
                             ),
                         ),
                         style=style.controls_style,

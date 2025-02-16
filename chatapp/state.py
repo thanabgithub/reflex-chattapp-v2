@@ -75,7 +75,13 @@ class State(rx.State):
             return State.process_question
         self.previous_keydown_character = keydown_character
 
-    @rx.event
+    @rx.event(background=True)
+    async def stop_process(self):
+        """Stop the current processing."""
+        async with self:
+            self.processing = False
+
+    @rx.event(background=True)
     async def process_question(self):
         """Process the question and get a response from the API."""
         if not self.question.strip():
@@ -86,15 +92,17 @@ class State(rx.State):
             api_key=os.getenv("OPENROUTER_API_KEY"),
         )
 
-        # Add to the chat history
-        answer = ""
-        self.chat_history.append((self.question, answer))
-        self._save_current_chat()  # Save to chats dictionary
-
-        # Clear the input
+        # Store question and clear input
         question = self.question
-        self.question = ""
-        self.processing = True
+        answer = ""
+
+        async with self:
+            # Add to the chat history
+            self.chat_history.append((question, answer))
+            self._save_current_chat()  # Save to chats dictionary
+            # Clear the input
+            self.question = ""
+            self.processing = True
         yield
 
         try:
@@ -105,27 +113,27 @@ class State(rx.State):
             )
 
             async for item in session:
-                if hasattr(item.choices[0].delta, "content"):
-                    if item.choices[0].delta.content is None:
+                async with self:
+                    if not self.processing:
+                        session.close()
                         break
-                    answer += item.choices[0].delta.content
-                    self.chat_history[-1] = (
-                        self.chat_history[-1][0],
-                        answer,
-                    )
-                    self._save_current_chat()
-                    yield rx.call_script(
-                        self.scroll_to_bottom_js
-                    )  # MODIFIED LINE: Removed callback
+
+                    if hasattr(item.choices[0].delta, "content"):
+                        if item.choices[0].delta.content is None:
+                            break
+                        answer += item.choices[0].delta.content
+                        self.chat_history[-1] = (question, answer)
+                        self._save_current_chat()
+                yield rx.call_script(self.scroll_to_bottom_js)
 
         except Exception as e:
-            self.chat_history[-1] = (self.chat_history[-1][0], f"Error: {str(e)}")
-            self._save_current_chat()
-            yield rx.call_script(
-                self.scroll_to_bottom_js
-            )  # MODIFIED LINE: Removed callback
+            async with self:
+                self.chat_history[-1] = (question, f"Error: {str(e)}")
+                self._save_current_chat()
+            yield rx.call_script(self.scroll_to_bottom_js)
         finally:
-            self.processing = False
+            async with self:
+                self.processing = False
             yield
 
     scroll_to_bottom_js = """

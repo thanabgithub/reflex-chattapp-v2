@@ -18,7 +18,7 @@ def index() -> rx.Component:
                         size="8",
                         color="black",
                         text_align="center",
-                        margin_top="25%",
+                        margin_top="20%",
                         margin_bottom="5%",
                     ),
                     rx.box(),

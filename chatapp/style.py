@@ -3,7 +3,7 @@
 # Common styles
 shadow = "rgba(0, 0, 0, 0.15) 0px 2px 8px"
 message_style = dict(
-    padding="1em",
+    padding_inline="1em",
     border_radius="5px",
     display="inline-block",
     color="black",
@@ -72,6 +72,34 @@ select_style = dict(
 )
 
 button_style = dict(
+    background_color="#FFFFFF",
+    border="1px solid #E9E9E9",
+    border_radius="50%",
+    padding="0.5em",
+    aspect_ratio="1",
+    color="black",
+)
+
+context_menu_style = dict(
+    background_color="white",
+    border="1px solid #E9E9E9",
+    border_radius="8px",
+    padding="0.5em",
+    box_shadow=shadow,
+    color="black",
+)
+
+# Update button_style to remove border-radius for regular buttons
+button_style = dict(
+    background_color="#FFFFFF",
+    border="1px solid #E9E9E9",
+    border_radius="8px",
+    padding="0.5em",
+    color="black",
+)
+
+# Add specific style for circular buttons (used in action bar)
+circular_button_style = dict(
     background_color="#FFFFFF",
     border="1px solid #E9E9E9",
     border_radius="50%",

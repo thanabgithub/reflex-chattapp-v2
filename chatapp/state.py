@@ -150,9 +150,3 @@ if (chatContainer) {
     console.warn('Chat container not found');
 };
 """
-
-    @rx.event
-    def scroll_to_bottom(self):  # REMOVED ENTIRE FUNCTION
-        """Scroll the chat to the bottom."""
-        # This event handler now only serves as a callback for call_script, no need to call call_script again here.
-        pass

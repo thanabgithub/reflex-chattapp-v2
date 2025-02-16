@@ -65,10 +65,11 @@ class State(rx.State):
             self.previous_keydown_character == "Control"
             and keydown_character == "Enter"
         ):
-            return State.answer
+            return State.process_question
         self.previous_keydown_character = keydown_character
 
-    async def answer(self):
+    @rx.event
+    async def process_question(self):
         """Generate an AI response."""
         # Our chatbot has some brains now!
         client = AsyncOpenAI(

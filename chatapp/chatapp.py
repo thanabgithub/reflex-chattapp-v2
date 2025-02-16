@@ -62,7 +62,6 @@ def action_bar() -> rx.Component:
                     style=style.input_style,
                     on_key_down=State.handle_keydown,  # to track for ctrl + Enter
                 ),
-                on_submit=State.answer,
                 style=style.form_style,
             ),
             # Controls row
@@ -82,7 +81,7 @@ def action_bar() -> rx.Component:
                 rx.spacer(),
                 rx.button(
                     rx.icon("arrow-right"),
-                    on_click=State.answer,
+                    on_click=State.process_question,
                     style=style.button_style,
                 ),
                 style=style.controls_style,

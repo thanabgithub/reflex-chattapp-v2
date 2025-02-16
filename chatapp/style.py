@@ -9,7 +9,6 @@ chat_margin = "20%"
 message_style = dict(
     padding="1em",
     border_radius="5px",
-    margin_y="0.5em",
     display="inline-block",
     color="black",
 )
@@ -59,7 +58,7 @@ input_style = dict(
     outline="none",
     box_shadow="none",
     font_size="1em",
-    min_height="5em",
+    min_height="6em",
     overflow_y="hidden",  # Changed from auto to hidden
     _focus={
         "border": "none",

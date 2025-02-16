@@ -66,6 +66,18 @@ def editing_question_input(index: int) -> rx.Component:
                         style=style.input_style,
                     ),
                     rx.hstack(
+                        rx.select(
+                            [
+                                "deepseek/deepseek-r1",
+                                "openai/gpt-4o-mini",
+                                "google/gemini-2.0-flash-thinking-exp:free",
+                            ],
+                            placeholder="deepseek/deepseek-r1",
+                            disabled=State.processing,
+                            on_change=State.set_model,
+                            style=style.select_style,
+                        ),
+                        rx.spacer(),
                         rx.button(
                             "Cancel",
                             on_click=State.cancel_editing,

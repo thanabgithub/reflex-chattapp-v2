@@ -277,7 +277,6 @@ if (chatContainer) {
             )
 
             messages = self.format_messages(new_question)
-            print(messages[: 2 * current_index + 1])
             session = await client.chat.completions.create(
                 model=self.model,
                 messages=messages[: 2 * current_index + 1],

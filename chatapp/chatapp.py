@@ -30,12 +30,13 @@ def index() -> rx.Component:
                 width="100%",
             ),
             style=chat.chat_style,
+            id="chat-container",
         ),
         rx.box(),  # Empty box for third column
         width="100%",
         height="100vh",
         background_color="white",
-        grid_template_columns="250px 1fr 1fr",  # Three columns layout
+        grid_template_columns="250px 2fr 1fr",  # Three columns layout
     )
 
 

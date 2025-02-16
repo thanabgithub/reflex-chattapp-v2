@@ -3,7 +3,6 @@
 import reflex as rx
 from chatapp.state import State
 from chatapp import style
-from chatapp.components.loading_icon import loading_icon
 
 
 def action_bar() -> rx.Component:
@@ -28,6 +27,7 @@ def action_bar() -> rx.Component:
                                     "google/gemini-2.0-flash-thinking-exp:free",
                                 ],
                                 placeholder="deepseek/deepseek-r1",
+                                disabled=State.processing,
                                 on_change=State.set_model,
                                 style=style.select_style,
                             ),
@@ -36,11 +36,15 @@ def action_bar() -> rx.Component:
                         rx.button(
                             rx.cond(
                                 State.processing,
-                                loading_icon(),
+                                rx.spinner(),
                                 rx.icon("arrow-right"),
                             ),
                             on_click=State.process_question,
-                            style=style.button_style,
+                            style=dict(
+                                background_color="transparent",
+                                border="0px solid #E9E9E9",
+                                color="black",
+                            ),
                         ),
                         style=style.controls_style,
                     ),

@@ -1,11 +1,12 @@
 """State management for the chat app."""
 
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import openai
 from openai import AsyncOpenAI
 import reflex as rx
 from dotenv import load_dotenv
+import asyncio
 
 load_dotenv()
 
@@ -30,20 +31,39 @@ class State(rx.State):
     processing: bool = False
     modal_open: bool = False
 
-    # Conversation history
-    history: List[str] = ["New Chat"]
+    # Conversation management
+    chats: Dict[str, List[Tuple[str, str]]] = {"New Chat": []}
     current_chat: str = "New Chat"
+    history: List[str] = ["New Chat"]
 
     def create_new_chat(self):
         """Create a new chat session."""
-        self.chat_history = []
+        new_chat_id = f"Chat {len(self.chats) + 1}"
+        self.chats[new_chat_id] = []
+        self.history.append(new_chat_id)
+        self.current_chat = new_chat_id
+        self.chat_history = self.chats[self.current_chat]
         self.processing = False
 
     def load_chat(self, chat_id: str):
         """Load a specific chat history."""
-        # In a real app, this would load from a database
-        self.chat_history = []
-        self.current_chat = chat_id
+        if chat_id in self.chats:
+            self.current_chat = chat_id
+            self.chat_history = self.chats[chat_id]
+
+    def delete_chat(self):
+        """Delete the current chat."""
+        if self.current_chat != "New Chat":
+            del self.chats[self.current_chat]
+            self.history.remove(self.current_chat)
+            # Set current chat to "New Chat" or the last chat in history
+            self.current_chat = "New Chat"
+            self.chat_history = self.chats[self.current_chat]
+
+    def _save_current_chat(self):
+        """Save current chat history to chats dictionary."""
+        if self.current_chat in self.chats:
+            self.chats[self.current_chat] = self.chat_history
 
     @rx.event
     def handle_keydown(self, keydown_character: str):
@@ -69,6 +89,8 @@ class State(rx.State):
         # Add to the chat history
         answer = ""
         self.chat_history.append((self.question, answer))
+        self._save_current_chat()  # Save to chats dictionary
+
         # Clear the input
         question = self.question
         self.question = ""
@@ -91,10 +113,46 @@ class State(rx.State):
                         self.chat_history[-1][0],
                         answer,
                     )
-                    yield
+                    self._save_current_chat()
+                    yield rx.call_script(
+                        self.scroll_to_bottom_js
+                    )  # MODIFIED LINE: Removed callback
 
         except Exception as e:
             self.chat_history[-1] = (self.chat_history[-1][0], f"Error: {str(e)}")
-
+            self._save_current_chat()
+            yield rx.call_script(
+                self.scroll_to_bottom_js
+            )  # MODIFIED LINE: Removed callback
         finally:
             self.processing = False
+            yield
+
+    scroll_to_bottom_js = """
+const chatContainer = document.getElementById('chat-container');
+if (chatContainer) {
+    // Get the current scroll position and container dimensions
+    const currentScroll = chatContainer.scrollTop;
+    const scrollHeight = chatContainer.scrollHeight;
+    const clientHeight = chatContainer.clientHeight;
+
+    // Calculate the maximum scroll position
+    const maxScroll = scrollHeight - clientHeight;
+
+    // Scroll to bottom and log any issues
+    try {
+        chatContainer.scrollTop = maxScroll;
+        console.log('Scrolled to bottom:', maxScroll);
+    } catch (error) {
+        console.error('Error scrolling:', error);
+    }
+} else {
+    console.warn('Chat container not found');
+};
+"""
+
+    @rx.event
+    def scroll_to_bottom(self):  # REMOVED ENTIRE FUNCTION
+        """Scroll the chat to the bottom."""
+        # This event handler now only serves as a callback for call_script, no need to call call_script again here.
+        pass

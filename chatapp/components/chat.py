@@ -10,6 +10,7 @@ chat_style = dict(
     overflow_y="auto",
     background_color="white",
     color="black",
+    scroll_behavior="smooth",
 )
 
 

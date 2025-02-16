@@ -10,6 +10,8 @@ import asyncio
 
 load_dotenv()
 
+ENABLE_AUTO_SCROLL_DOWN = False
+
 
 class QA(rx.Base):
     """A question and answer pair."""
@@ -274,12 +276,11 @@ if (chatContainer) {
                 api_key=os.getenv("OPENROUTER_API_KEY"),
             )
 
-            # Get formatted conversation history including edited question
             messages = self.format_messages(new_question)
-
+            print(messages[: 2 * current_index + 1])
             session = await client.chat.completions.create(
                 model=self.model,
-                messages=messages,
+                messages=messages[: 2 * current_index + 1],
                 stream=True,
             )
 
@@ -295,13 +296,15 @@ if (chatContainer) {
                         answer += item.choices[0].delta.content
                         self.chat_history[current_index] = (new_question, answer)
                         self._save_current_chat()
-                yield rx.call_script(self.scroll_to_bottom_js)
+                if ENABLE_AUTO_SCROLL_DOWN:
+                    yield rx.call_script(self.scroll_to_bottom_js)
 
         except Exception as e:
             async with self:
                 self.chat_history[current_index] = (new_question, f"Error: {str(e)}")
                 self._save_current_chat()
-            yield rx.call_script(self.scroll_to_bottom_js)
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
         finally:
             async with self:
                 self.processing = False

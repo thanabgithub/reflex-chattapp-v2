@@ -45,6 +45,41 @@ class State(rx.State):
     current_chat: str = "New Chat"
     history: List[str] = ["New Chat"]
 
+    # --- New authentication fields ---
+    authenticated: bool = False
+    # Set your desired passcode here (for example, "1234")
+    passcode: str = os.getenv("PASSCODE")
+    # Temporary field for the passcode provided by the user
+    passcode_input: str = ""
+
+    def check_auth(self):
+        """Redirects to the auth page if the user is not authenticated."""
+        if not self.authenticated:
+            return rx.redirect("/auth")
+
+    @rx.event
+    def set_passcode_input(self, value: str):
+        """Sets the passcode input from the form."""
+        self.passcode_input = value
+
+    @rx.event
+    def authenticate(self):
+        """Verifies the passcode and, if correct, sets the auth flag and cookie."""
+        if self.passcode_input == self.passcode:
+            self.authenticated = True
+            self.passcode_input = ""  # Clear the temporary input
+            # Set a cookie for 60 minutes using a JS call.
+            # The cookie here is named "auth" with value "true" and expires in 3600 seconds.
+            yield rx.call_script("document.cookie = 'auth=true; max-age=3600; path=/'")
+            yield rx.toast.success(
+                "Valid passcode",
+            )
+            # Then redirect to the main page.
+            return rx.redirect("/")
+        else:
+            # Notify the user of a failed attempt.
+            return rx.toast.error("Invalid passcode")
+
     def create_new_chat(self):
         """Create a new chat session."""
         new_chat_id = f"Chat {len(self.chats) + 1}"
@@ -75,7 +110,7 @@ class State(rx.State):
             self.chats[self.current_chat] = self.chat_history
 
     @rx.event
-    def handle_keydown(self, keydown_character: str):
+    def handle_action_bar_keydown(self, keydown_character: str):
         """Handle keyboard shortcuts."""
         if (
             self.previous_keydown_character == "Control"

@@ -20,7 +20,7 @@ def action_bar() -> rx.Component:
                             placeholder="何でも質問してください...",
                             on_change=State.set_question,
                             style=style.input_style,
-                            on_key_down=State.handle_keydown,
+                            on_key_down=State.handle_action_bar_keydown,
                         ),
                         rx.hstack(
                             rx.hstack(
@@ -51,7 +51,7 @@ def action_bar() -> rx.Component:
                                 ),
                                 rx.button(
                                     rx.icon("arrow-right"),
-                                    on_click=State.process_question,
+                                    type="submit",
                                     style=dict(
                                         background_color="transparent",
                                         border="0px solid #E9E9E9",

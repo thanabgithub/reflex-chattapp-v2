@@ -3,9 +3,12 @@
 import reflex as rx
 
 from chatapp.components import chat, sidebar, action_bar
+from chatapp.pages import auth
+from chatapp.state import State
 
 
-def index() -> rx.Component:
+@rx.page(on_load=State.check_auth)
+def index():
     """The main app."""
     return rx.grid(
         sidebar.sidebar(),
@@ -47,4 +50,7 @@ app = rx.App(
         radius="medium",
     )
 )
+
+# Add pages
 app.add_page(index)
+app.add_page(auth.auth, route="/auth", title="Login")

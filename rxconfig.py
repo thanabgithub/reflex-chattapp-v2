@@ -17,10 +17,10 @@ config = rx.Config(
     app_name="chatapp",
     loglevel=LogLevel.DEBUG,
     env=rx.Env.DEV,
+    frontend_port=80,
     state_manager_mode=constants.StateManagerMode.MEMORY,
     # env=rx.Env.PROD,
-    # frontend_port=80,
     # backend_host="152.42.211.214",
     # api_url="http://152.42.211.214:8000",
-    # deploy_url="http://152.42.211.214:80",
+    # deploy_url="https://demo.thana.team",
 )

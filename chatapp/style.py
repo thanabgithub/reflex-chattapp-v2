@@ -108,3 +108,17 @@ circular_button_style = dict(
     aspect_ratio="1",
     color="black",
 )
+
+copy_button_style = dict(
+    position="absolute",
+    bottom="0.5em",
+    right="0.5em",
+    background_color="white",
+    border="1px solid #E9E9E9",
+    border_radius="4px",
+    padding="0.3em",
+    cursor="pointer",
+    opacity="0",
+    transition="opacity 0.2s",
+    _hover={"opacity": 1},
+)

@@ -14,6 +14,33 @@ chat_style = dict(
 )
 
 
+class CopyState(rx.State):
+    """State for managing copy button icons."""
+
+    copied_indices: dict[int, bool] = {}
+
+    @rx.event(background=True)
+    async def copy_and_reset(self, answer: str, index: int):
+        """Copy text and show check mark temporarily."""
+        # First yield the clipboard event
+        yield rx.set_clipboard(answer)
+
+        # Then update state within context manager
+        async with self:
+            self.copied_indices[index] = True
+            yield
+
+        # Wait 1 second
+        import asyncio
+
+        await asyncio.sleep(1)
+
+        # Reset back to copy icon within context manager
+        async with self:
+            self.copied_indices[index] = False
+            yield
+
+
 def editing_answer_input(index: int) -> rx.Component:
     """Display the editing interface for an answer."""
     # Create a style that matches the answer container style
@@ -129,7 +156,22 @@ def message_with_context_menu(question: str, answer: str, index: int) -> rx.Comp
                 rx.context_menu.root(
                     rx.context_menu.trigger(
                         rx.box(
-                            rx.markdown(answer, style=style.answer_style),
+                            rx.box(
+                                rx.markdown(answer, style=style.answer_style),
+                                rx.box(
+                                    rx.cond(
+                                        CopyState.copied_indices[index],
+                                        rx.icon("check", stroke_width=1, size=15),
+                                        rx.icon("copy", stroke_width=1, size=15),
+                                    ),
+                                    on_click=lambda: CopyState.copy_and_reset(
+                                        answer, index
+                                    ),
+                                    style=style.copy_button_style,
+                                    _hover={"opacity": 1},
+                                ),
+                                position="relative",
+                            ),
                             width="100%",
                         ),
                     ),

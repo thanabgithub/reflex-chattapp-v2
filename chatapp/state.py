@@ -2,11 +2,9 @@
 
 import os
 from typing import *
-import openai
 from openai import AsyncOpenAI
 import reflex as rx
 from dotenv import load_dotenv
-import asyncio
 
 load_dotenv()
 

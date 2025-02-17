@@ -43,40 +43,40 @@ class State(rx.State):
     current_chat: str = "New Chat"
     history: List[str] = ["New Chat"]
 
-    # --- New authentication fields ---
+    # Authentication state
     authenticated: bool = False
-    # Set your desired passcode here (for example, "1234")
+    auth_token: str = rx.Cookie("")
     passcode: str = os.getenv("PASSCODE")
-    # Temporary field for the passcode provided by the user
     passcode_input: str = ""
 
+    @rx.event
     def check_auth(self):
-        """Redirects to the auth page if the user is not authenticated."""
+        """Checks authentication status from cookie and redirects if not authenticated."""
+        # Read authentication status from cookie
+        self.authenticated = self.auth_token == "is_login"
+
         if not self.authenticated:
             return rx.redirect("/auth")
 
     @rx.event
-    def set_passcode_input(self, value: str):
-        """Sets the passcode input from the form."""
-        self.passcode_input = value
-
-    @rx.event
     def authenticate(self):
-        """Verifies the passcode and, if correct, sets the auth flag and cookie."""
+        """Verifies the passcode and sets auth cookie if correct."""
         if self.passcode_input == self.passcode:
             self.authenticated = True
-            self.passcode_input = ""  # Clear the temporary input
-            # Set a cookie for 60 minutes using a JS call.
-            # The cookie here is named "auth" with value "true" and expires in 3600 seconds.
-            yield rx.call_script("document.cookie = 'auth=true; max-age=3600; path=/'")
-            yield rx.toast.success(
-                "Valid passcode",
-            )
-            # Then redirect to the main page.
+            self.auth_token = "is_login"
+            self.passcode_input = ""
+
+            yield rx.toast.success("Valid passcode")
             return rx.redirect("/")
         else:
-            # Notify the user of a failed attempt.
             return rx.toast.error("Invalid passcode")
+
+    @rx.event
+    def logout(self):
+        """Logs out the user by clearing the auth cookie."""
+        self.authenticated = False
+        self.auth_token = ""  # Clear the auth cookie
+        return rx.redirect("/auth")
 
     def create_new_chat(self):
         """Create a new chat session."""

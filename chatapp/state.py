@@ -27,72 +27,27 @@ class StreamChunk:
 
 
 class StreamProcessor:
-    """Improved stream processor that handles long responses and reasoning tokens."""
+    """Stream processor that follows the official OpenRouter documentation approach."""
 
     def __init__(self, response, session):
         self.response = response
         self.session = session
         self.buffer = ""
         self._closed = False
-        self._done = False
-        self._complete_messages = []
-        self._current_message = {"content": "", "reasoning": ""}
-        self._lock = asyncio.Lock()
 
     async def start(self):
         """Start processing the stream."""
         return self
 
-    async def _process_line(self, line):
-        """Process a single line of SSE data."""
-        if line.startswith("data: "):
-            data = line[6:]
-            if data == "[DONE]":
-                self._done = True
-                return True
-
-            try:
-                data_obj = json.loads(data)
-                chunk = ChatCompletionChunk(data_obj)
-
-                if chunk.choices:
-                    choice = chunk.choices[0]
-                    delta = choice.delta
-
-                    # Store both content and reasoning from this chunk
-                    if delta.content is not None:
-                        self._current_message["content"] += delta.content
-                    if delta.reasoning is not None:
-                        self._current_message["reasoning"] += delta.reasoning
-
-                    # Create a StreamChunk with all available data
-                    return StreamChunk(
-                        content=delta.content, reasoning=delta.reasoning, is_done=False
-                    )
-
-            except json.JSONDecodeError:
-                pass
-        return None
-
-    async def _read_chunk(self):
-        """Read a chunk from the response and process it."""
-        try:
-            chunk = await self.response.content.read(1024)
-            if not chunk:
-                return None
-            return chunk.decode("utf-8")
-        except Exception as e:
-            return None
-
     async def __aiter__(self):
-        """Iterate over the stream chunks with improved error handling."""
-        while not self._done and not self._closed:
-            try:
-                chunk = await self._read_chunk()
+        """Iterate over the stream chunks following the official approach."""
+        try:
+            while not self._closed:
+                chunk = await self.response.content.read(1024)
                 if not chunk:
                     break
 
-                self.buffer += chunk
+                self.buffer += chunk.decode("utf-8")
 
                 while True:
                     line_end = self.buffer.find("\n")
@@ -102,36 +57,47 @@ class StreamProcessor:
                     line = self.buffer[:line_end].strip()
                     self.buffer = self.buffer[line_end + 1 :]
 
-                    result = await self._process_line(line)
-                    if result:
-                        if result.is_done:
-                            self._done = True
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            self._closed = True
                             break
-                        if result.content is not None or result.reasoning is not None:
-                            yield result
 
-            except Exception as e:
-                # Log error if needed
-                break
+                        try:
+                            data_obj = json.loads(data)
+                            content = data_obj["choices"][0]["delta"].get("content")
+                            reasoning = data_obj["choices"][0]["delta"].get("reasoning")
 
-        # Final cleanup
-        if not self._closed:
+                            # Only yield if we have content or reasoning
+                            if content or reasoning:
+                                yield StreamChunk(
+                                    content=content, reasoning=reasoning, is_done=False
+                                )
+                        except json.JSONDecodeError:
+                            continue
+                        except Exception as e:
+                            print(f"Error processing chunk: {str(e)}")
+                            continue
+
+        except Exception as e:
+            print(f"Stream error: {str(e)}")
+        finally:
             await self.close()
 
     async def close(self):
         """Close the stream processor and clean up resources."""
         if not self._closed:
             self._closed = True
-            if self.response:
+            if not self.response.closed:
                 await self.response.release()
-            if self.session:
-                await self.session.close()
+            await self.session.close()
 
     async def __aenter__(self):
-        await self.start()
-        return self
+        """Support for async context manager."""
+        return await self.start()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Cleanup when exiting async context."""
         await self.close()
 
 

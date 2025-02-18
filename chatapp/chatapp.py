@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from chatapp.components import chat, sidebar, action_bar
+from chatapp.components import chat, left_sidebar, action_bar
 from chatapp.pages import auth
 from chatapp.state import State
 
@@ -11,7 +11,7 @@ from chatapp.state import State
 def index():
     """The main app."""
     return rx.grid(
-        sidebar.sidebar(),
+        left_sidebar.sidebar(),
         rx.box(
             rx.vstack(
                 rx.cond(

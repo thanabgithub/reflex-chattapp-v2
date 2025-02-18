@@ -18,6 +18,7 @@ def action_bar() -> rx.Component:
                 rx.form(
                     rx.vstack(
                         rx.text_area(
+                            key="main_text_area",
                             id="input-textarea",  # Add an ID for the JS to reference
                             value=State.question,
                             placeholder="何でも質問してください...",
@@ -33,7 +34,7 @@ def action_bar() -> rx.Component:
                               element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px'; // Limit to 60vh
                             }
                             
-                            const textarea = document.getElementById('input-textarea');
+                            var textarea = document.getElementById('input-textarea');
                             if (textarea) {
                               textarea.addEventListener('input', function() {
                                 autoResizeTextArea(this);
@@ -41,6 +42,7 @@ def action_bar() -> rx.Component:
                               // Run on initial load too
                               autoResizeTextArea(textarea);
                             }
+                            delete textarea;
                             """,
                             strategy="afterInteractive",
                         ),

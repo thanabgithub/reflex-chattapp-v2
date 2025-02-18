@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from chatapp.components import chat, left_sidebar, action_bar, right_sidebar
+from chatapp.components import chat, chat_action_bar, left_sidebar, right_sidebar
 from chatapp.pages import auth
 from chatapp.state import State
 
@@ -27,7 +27,7 @@ def index():
                     rx.box(),
                 ),
                 chat.chat(),
-                action_bar.action_bar(),
+                chat_action_bar.action_bar(),
                 align="center",
                 spacing="4",
                 width="100%",

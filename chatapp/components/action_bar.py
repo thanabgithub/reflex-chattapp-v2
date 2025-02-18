@@ -8,7 +8,7 @@ from chatapp import style
 def action_bar() -> rx.Component:
     """The action bar component for user input."""
     return rx.cond(
-        # Update the condition to check both editing states
+        # Check editing states as before.
         (State.editing_user_message_index != None)
         | (State.editing_assistant_content_index != None)
         | (State.editing_assistant_reasoning_index != None),
@@ -18,11 +18,31 @@ def action_bar() -> rx.Component:
                 rx.form(
                     rx.vstack(
                         rx.text_area(
+                            id="input-textarea",  # Add an ID for the JS to reference
                             value=State.question,
                             placeholder="何でも質問してください...",
                             on_change=State.set_question,
                             style=style.input_style,
                             on_key_down=State.handle_action_bar_keydown,
+                        ),
+                        # Insert the JavaScript as a sibling element rather than in on_mount.
+                        rx.script(
+                            """
+                            function autoResizeTextArea(element) {
+                              element.style.height = 'auto';
+                              element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px'; // Limit to 60vh
+                            }
+                            
+                            const textarea = document.getElementById('input-textarea');
+                            if (textarea) {
+                              textarea.addEventListener('input', function() {
+                                autoResizeTextArea(this);
+                              });
+                              // Run on initial load too
+                              autoResizeTextArea(textarea);
+                            }
+                            """,
+                            strategy="afterInteractive",
                         ),
                         rx.hstack(
                             rx.hstack(

@@ -51,7 +51,9 @@ input_style = dict(
     box_shadow="none",
     font_size="1em",
     min_height="6em",
-    overflow_y="hidden",
+    max_height="60vh",  # Maximum height set to 60vh
+    overflow_y="auto",  # Scrollable vertically when content exceeds 60vh
+    resize="vertical",  # Allow user or auto growth in vertical direction
     _focus={"border": "none", "outline": "none", "box_shadow": "none"},
     _placeholder={"color": "#A3A3A3"},
 )

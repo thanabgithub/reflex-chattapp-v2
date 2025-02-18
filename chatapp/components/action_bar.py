@@ -18,15 +18,13 @@ def action_bar() -> rx.Component:
                 rx.form(
                     rx.vstack(
                         rx.text_area(
-                            key="main_text_area",
-                            id="input-textarea",  # Add an ID for the JS to reference
+                            id="input-textarea--action-bar",  # Add an ID for the JS to reference
                             value=State.question,
                             placeholder="何でも質問してください...",
                             on_change=State.set_question,
                             style=style.input_style,
                             on_key_down=State.handle_action_bar_keydown,
                         ),
-                        # Insert the JavaScript as a sibling element rather than in on_mount.
                         rx.script(
                             """
                             function autoResizeTextArea(element) {
@@ -34,7 +32,7 @@ def action_bar() -> rx.Component:
                               element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px'; // Limit to 60vh
                             }
                             
-                            var textarea = document.getElementById('input-textarea');
+                            var textarea = document.getElementById('input-textarea--action-bar');
                             if (textarea) {
                               textarea.addEventListener('input', function() {
                                 autoResizeTextArea(this);

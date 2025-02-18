@@ -2,7 +2,7 @@
 
 import reflex as rx
 
-from chatapp.components import chat, left_sidebar, action_bar
+from chatapp.components import chat, left_sidebar, action_bar, right_sidebar
 from chatapp.pages import auth
 from chatapp.state import State
 
@@ -35,11 +35,11 @@ def index():
             style=chat.chat_style,
             id="chat-container",
         ),
-        rx.box(),  # Empty box for third column
+        right_sidebar.right_sidebar(),  # 新しいコンポーネントをここに追加
         width="100%",
         height="100vh",
         background_color="white",
-        grid_template_columns="250px 2fr 1fr",  # Three columns layout
+        grid_template_columns="250px 2fr 1fr",  # 三列レイアウト
     )
 
 

@@ -166,7 +166,12 @@ def editing_assistant_reasoning(index: int) -> rx.Component:
             ),
             width="100%",
         ),
-        style=style.answer_style,
+        style=style.input_container_style
+        | dict(
+            border="0px solid #E9E9E9",
+            box_shadow="none",
+            width="100%",
+        ),
     )
 
 

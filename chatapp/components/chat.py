@@ -1,7 +1,7 @@
 """Chat component for message display."""
 
 import reflex as rx
-from chatapp.state import State
+from chatapp.state import State, Message
 from chatapp import style
 
 chat_style = dict(
@@ -20,85 +20,32 @@ class CopyState(rx.State):
     copied_indices: dict[int, bool] = {}
 
     @rx.event(background=True)
-    async def copy_and_reset(self, answer: str, index: int):
+    async def copy_and_reset(self, text: str, index: int):
         """Copy text and show check mark temporarily."""
-        # First yield the clipboard event
-        yield rx.set_clipboard(answer)
+        yield rx.set_clipboard(text)
 
-        # Then update state within context manager
         async with self:
             self.copied_indices[index] = True
             yield
 
-        # Wait 1 second
         import asyncio
 
         await asyncio.sleep(1)
 
-        # Reset back to copy icon within context manager
         async with self:
             self.copied_indices[index] = False
             yield
 
 
-def editing_answer_input(index: int) -> rx.Component:
-    """Display the editing interface for an answer."""
-    # Create a style that matches the answer container style
-    answer_edit_container_style = style.input_container_style.copy()
-    answer_edit_container_style.update(
-        {
-            "background_color": "#F9F9F9",  # Match answer background color
-            "border": "1px solid #E9E9E9",  # Match answer border
-            "box_shadow": "none",  # Match answer box shadow
-        }
-    )
-
-    return rx.box(
-        rx.vstack(
-            rx.form(
-                rx.vstack(
-                    rx.text_area(
-                        value=State.answer,
-                        placeholder="Edit the answer...",
-                        on_change=State.set_answer,
-                        style=style.input_style
-                        | {
-                            "background_color": "transparent",  # Keep textarea background transparent
-                        },
-                    ),
-                    rx.hstack(
-                        rx.spacer(),
-                        rx.button(
-                            "Cancel",
-                            on_click=State.cancel_editing,
-                            style=style.button_style,
-                        ),
-                        rx.button(
-                            "Update",
-                            type="submit",
-                            style=style.button_style,
-                        ),
-                        justify="end",
-                        width="100%",
-                    ),
-                ),
-                on_submit=State.update_answer,
-            ),
-            width="100%",
-        ),
-        style=answer_edit_container_style,
-    )
-
-
-def editing_question_input(index: int) -> rx.Component:
-    """Display the editing interface for a question."""
+def editing_user_input(index: int) -> rx.Component:
+    """Display the editing interface for a user message."""
     return rx.box(
         rx.vstack(
             rx.form(
                 rx.vstack(
                     rx.text_area(
                         value=State.question,
-                        placeholder="Edit your question...",
+                        placeholder="Edit your message...",
                         on_change=State.set_question,
                         style=style.input_style,
                     ),
@@ -130,7 +77,7 @@ def editing_question_input(index: int) -> rx.Component:
                         width="100%",
                     ),
                 ),
-                on_submit=State.update_question,
+                on_submit=State.update_user_message,
             ),
             width="100%",
         ),
@@ -138,59 +85,108 @@ def editing_question_input(index: int) -> rx.Component:
     )
 
 
-def message_with_context_menu(question: str, answer: str, index: int) -> rx.Component:
-    """Display a message pair with a context menu for editing and deleting."""
+def editing_assistant_content(index: int) -> rx.Component:
+    """Display the editing interface for assistant content."""
+    return rx.box(
+        rx.vstack(
+            rx.form(
+                rx.vstack(
+                    rx.text_area(
+                        value=State.answer,
+                        placeholder="Edit the content...",
+                        on_change=State.set_answer,
+                        style=style.input_style
+                        | {
+                            "padding_inline": 0,
+                            "background_color": "transparent",
+                        },
+                    ),
+                    rx.hstack(
+                        rx.spacer(),
+                        rx.button(
+                            "Cancel",
+                            on_click=State.cancel_editing,
+                            style=style.button_style,
+                        ),
+                        rx.button(
+                            "Update",
+                            type="submit",
+                            style=style.button_style,
+                        ),
+                        justify="end",
+                        width="100%",
+                    ),
+                ),
+                on_submit=State.update_assistant_content,
+            ),
+            width="100%",
+        ),
+        style=style.input_container_style
+        | dict(
+            background_color="#F9F9F9",
+            border="1px solid #E9E9E9",
+            box_shadow="none",
+            width="100%",
+        ),
+    )
+
+
+def editing_assistant_reasoning(index: int) -> rx.Component:
+    """Display the editing interface for assistant reasoning."""
+    return rx.box(
+        rx.vstack(
+            rx.form(
+                rx.vstack(
+                    rx.text_area(
+                        value=State.reasoning,
+                        placeholder="Edit the reasoning...",
+                        on_change=State.set_reasoning,
+                        style=style.input_style
+                        | {
+                            "background_color": "transparent",
+                        },
+                    ),
+                    rx.hstack(
+                        rx.spacer(),
+                        rx.button(
+                            "Cancel",
+                            on_click=State.cancel_editing,
+                            style=style.button_style,
+                        ),
+                        rx.button(
+                            "Update",
+                            type="submit",
+                            style=style.button_style,
+                        ),
+                        justify="end",
+                        width="100%",
+                    ),
+                ),
+                on_submit=State.update_assistant_reasoning,
+            ),
+            width="100%",
+        ),
+        style=style.answer_style,
+    )
+
+
+def user_message(msg: Message, index: int) -> rx.Component:
+    """Display a user message with context menu."""
     return rx.context_menu.root(
         rx.context_menu.trigger(
             rx.box(
-                # Question container
                 rx.box(
-                    rx.box(
-                        rx.markdown(question, style=style.question_style),
-                        width="100%",
-                    ),
-                    width="80%",
-                    margin_left="20%",
+                    rx.markdown(msg.content, style=style.question_style),
+                    width="100%",
                 ),
-                # Answer container with its own context menu
-                rx.context_menu.root(
-                    rx.context_menu.trigger(
-                        rx.box(
-                            rx.box(
-                                rx.markdown(answer, style=style.answer_style),
-                                rx.box(
-                                    rx.cond(
-                                        CopyState.copied_indices[index],
-                                        rx.icon("check", stroke_width=1, size=15),
-                                        rx.icon("copy", stroke_width=1, size=15),
-                                    ),
-                                    on_click=lambda: CopyState.copy_and_reset(
-                                        answer, index
-                                    ),
-                                    style=style.copy_button_style,
-                                    _hover={"opacity": 1},
-                                ),
-                                position="relative",
-                            ),
-                            width="100%",
-                        ),
-                    ),
-                    rx.context_menu.content(
-                        rx.context_menu.item(
-                            "Edit Answer",
-                            on_click=lambda: State.start_editing_answer(index),
-                        ),
-                        style=style.context_menu_style,
-                    ),
-                ),
-                margin_y="1em",
-                width="100%",
+                width="80%",
+                margin_left="20%",
             ),
         ),
         rx.context_menu.content(
             rx.context_menu.item(
-                "Edit Question",
-                on_click=lambda: State.start_editing_question(index),
+                "Edit Message",
+                on_click=lambda: State.start_editing_user_message(index),
             ),
             rx.context_menu.separator(),
             rx.context_menu.item(
@@ -203,15 +199,113 @@ def message_with_context_menu(question: str, answer: str, index: int) -> rx.Comp
     )
 
 
-def qa(question: str, answer: str, index: int) -> rx.Component:
-    """Display a question and answer pair."""
-    return rx.cond(
-        State.editing_question_index == index,
-        editing_question_input(index),
+component_map = {
+    "p": lambda text: rx.text.em(text),
+}
+
+
+def assistant_message(msg: Message, index: int) -> rx.Component:
+    """Display an assistant message with reasoning and content."""
+    return rx.vstack(
+        # Reasoning section
         rx.cond(
-            State.editing_answer_index == index,
-            editing_answer_input(index),
-            message_with_context_menu(question, answer, index),
+            msg.reasoning != None,
+            rx.context_menu.root(
+                rx.context_menu.trigger(
+                    rx.blockquote(
+                        rx.box(
+                            rx.markdown(msg.reasoning, component_map=component_map),
+                            rx.box(
+                                rx.cond(
+                                    CopyState.copied_indices[f"{index}_reasoning"],
+                                    rx.icon("check", stroke_width=1, size=15),
+                                    rx.icon("copy", stroke_width=1, size=15),
+                                ),
+                                on_click=lambda: CopyState.copy_and_reset(
+                                    msg.reasoning, f"{index}_reasoning"
+                                ),
+                                style=style.copy_button_style,
+                                _hover={"opacity": 1},
+                            ),
+                            position="relative",
+                        ),
+                        width="100%",
+                        size="1",
+                    ),
+                ),
+                rx.context_menu.content(
+                    rx.context_menu.item(
+                        "Edit Reasoning",
+                        on_click=lambda: State.start_editing_assistant_reasoning(index),
+                    ),
+                    style=style.context_menu_style,
+                ),
+            ),
+            rx.box(),
+        ),
+        # Content section
+        rx.cond(
+            msg.content != None,
+            rx.context_menu.root(
+                rx.context_menu.trigger(
+                    rx.box(
+                        rx.box(
+                            rx.markdown(msg.content, style=style.answer_style),
+                            rx.box(
+                                rx.cond(
+                                    CopyState.copied_indices[f"{index}_content"],
+                                    rx.icon("check", stroke_width=1, size=15),
+                                    rx.icon("copy", stroke_width=1, size=15),
+                                ),
+                                on_click=lambda: CopyState.copy_and_reset(
+                                    msg.content, f"{index}_content"
+                                ),
+                                style=style.copy_button_style,
+                                _hover={"opacity": 1},
+                            ),
+                            position="relative",
+                        ),
+                        width="100%",
+                    ),
+                ),
+                rx.context_menu.content(
+                    rx.context_menu.item(
+                        "Edit Content",
+                        on_click=lambda: State.start_editing_assistant_content(index),
+                    ),
+                    rx.context_menu.separator(),
+                    rx.context_menu.item(
+                        "Delete Message",
+                        color_scheme="red",
+                        on_click=lambda: State.delete_message(index),
+                    ),
+                    style=style.context_menu_style,
+                ),
+            ),
+            rx.box(),
+        ),
+        align="start",
+        width="100%",
+    )
+
+
+def message(msg: Message, index: int) -> rx.Component:
+    """Display a message with all editing capabilities."""
+    return rx.cond(
+        State.editing_user_message_index == index,
+        editing_user_input(index),
+        rx.cond(
+            State.editing_assistant_content_index == index,
+            editing_assistant_content(index),
+            rx.cond(
+                State.editing_assistant_reasoning_index == index,
+                editing_assistant_reasoning(index),
+                rx.cond(
+                    msg.role == "user",
+                    user_message(msg, index),
+                    assistant_message(msg, index),
+                ),
+            ),
         ),
     )
 
@@ -221,9 +315,9 @@ def chat() -> rx.Component:
     return rx.vstack(
         rx.foreach(
             State.chat_history,
-            lambda messages, index: qa(messages[0], messages[1], index),
+            lambda msg, index: message(msg, index),
         ),
-        align="end",
+        align="start",
         width="100%",
         padding_bottom="5em",
     )

@@ -175,18 +175,19 @@ class AsyncOpenRouterAI:
                 raise
 
 
-class QA(rx.Base):
-    """A question and answer pair."""
+class Message(rx.Base):
+    """A chat message."""
 
-    question: str
-    answer: str
+    role: str
+    content: Optional[str] = None
+    reasoning: Optional[str] = None
 
 
 class State(rx.State):
     """The app state."""
 
     # Chat state
-    chat_history: List[Tuple[str, str]] = []
+    chat_history: List[Message] = []
     question: str = ""
     model: str = "deepseek/deepseek-r1"
     previous_keydown_character: str = ""
@@ -196,10 +197,10 @@ class State(rx.State):
     modal_open: bool = False
 
     # Editing
-    editing_question: Optional[str] = None
-    editing_index: Optional[int] = None
-    editing_question_index: Optional[int] = None
-    editing_answer_index: Optional[int] = None
+    editing_user_message_index: Optional[int] = None
+    editing_assistant_content_index: Optional[int] = None
+    editing_assistant_reasoning_index: Optional[int] = None
+    reasoning: str = ""
     answer: str = ""
 
     # Conversation management
@@ -291,24 +292,18 @@ class State(rx.State):
     def format_messages(self, question: str) -> List[Dict[str, str]]:
         """Format chat history and current question into messages for the API."""
         messages = []
-
-        # Add chat history
-        for q, a in self.chat_history:
-            messages.append({"role": "user", "content": q})
-            messages.append({"role": "assistant", "content": a})
-
-        # Add the current question
+        for msg in self.chat_history:
+            if msg.content:
+                messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": question})
-
         return messages
 
     @rx.event(background=True)
     async def process_question(self):
-        """Process the current question and add the Q&A pair to chat history."""
+        """Process the current question and add it to chat history."""
         if not self.question.strip():
             return
 
-        # Store the current question but don't clear it yet
         current_question = self.question
 
         try:
@@ -318,10 +313,8 @@ class State(rx.State):
                 api_key=os.getenv("OPENROUTER_API_KEY"),
             )
 
-            # Format messages for the API
             messages = self.format_messages(current_question)
 
-            # Start the stream processor
             processor = await client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -329,30 +322,32 @@ class State(rx.State):
                 include_reasoning=True,
             )
 
-            # Now that we have a processor, we can safely update the state
             async with self:
                 self.processing = True
                 self.question = ""  # Clear the input
-                self.chat_history.append((current_question, ""))  # Add new Q&A pair
+                # Add user message
+                self.chat_history.append(Message(role="user", content=current_question))
+                # Add initial assistant message
+                self.chat_history.append(Message(role="assistant"))
                 self._save_current_chat()
 
-            yield  # Allow UI to update
+            yield
 
-            # Process the stream
             async with processor:
                 answer = ""
+                reasoning = ""
                 async for chunk in processor:
                     if not self.processing:
                         break
 
                     async with self:
                         if chunk.reasoning:
-                            answer += chunk.reasoning
-                            self.chat_history[-1] = (current_question, answer)
+                            reasoning += chunk.reasoning
+                            self.chat_history[-1].reasoning = reasoning
                             self._save_current_chat()
                         if chunk.content:
                             answer += chunk.content
-                            self.chat_history[-1] = (current_question, answer)
+                            self.chat_history[-1].content = answer
                             self._save_current_chat()
 
                     if ENABLE_AUTO_SCROLL_DOWN:
@@ -361,20 +356,14 @@ class State(rx.State):
         except Exception as e:
             # Handle any errors that occur
             async with self:
-                if (
-                    len(self.chat_history) > 0
-                    and self.chat_history[-1][0] == current_question
-                ):
-                    self.chat_history[-1] = (current_question, f"Error: {str(e)}")
-                else:
-                    self.chat_history.append((current_question, f"Error: {str(e)}"))
+                error_msg = f"Error: {str(e)}"
+                self.chat_history.append(Message(role="assistant", content=error_msg))
                 self._save_current_chat()
 
             if ENABLE_AUTO_SCROLL_DOWN:
                 yield rx.call_script(self.scroll_to_bottom_js)
 
         finally:
-            # Always clean up
             async with self:
                 self.processing = False
             yield
@@ -523,3 +512,144 @@ if (chatContainer) {
         # Reset editing state
         self.editing_answer_index = None
         self.answer = ""
+
+    def start_editing_user_message(self, index: int):
+        """Start editing a user message."""
+        self.editing_user_message_index = index
+        self.question = self.chat_history[index].content
+
+    def start_editing_assistant_content(self, index: int):
+        """Start editing assistant content."""
+        self.editing_assistant_content_index = index
+        self.answer = self.chat_history[index].content
+
+    def start_editing_assistant_reasoning(self, index: int):
+        """Start editing assistant reasoning."""
+        self.editing_assistant_reasoning_index = index
+        self.reasoning = self.chat_history[index].reasoning
+
+    def cancel_editing(self):
+        """Cancel all editing modes."""
+        self.editing_user_message_index = None
+        self.editing_assistant_content_index = None
+        self.editing_assistant_reasoning_index = None
+        self.question = ""
+        self.answer = ""
+        self.reasoning = ""
+
+    @rx.event(background=True)
+    async def update_user_message(self):
+        """Update an existing user message and regenerate the answer."""
+        if self.editing_user_message_index is None or not self.question.strip():
+            return
+
+        client = AsyncOpenRouterAI(
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+        )
+
+        # Store values before clearing state
+        async with self:
+            new_question = self.question
+            current_index = self.editing_user_message_index
+
+            # Reset editing state
+            self.editing_user_message_index = None
+            self.question = ""
+
+            # Update the user message
+            self.chat_history[current_index].content = new_question
+            # Remove all subsequent messages
+            self.chat_history = self.chat_history[: current_index + 1]
+            self._save_current_chat()
+            self.processing = True
+
+        yield
+
+        try:
+            messages = self.format_messages(new_question)
+            session = await client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+                include_reasoning=True,
+            )
+
+            # Initialize empty assistant message
+            async with self:
+                self.chat_history.append(Message(role="assistant"))
+                self._save_current_chat()
+
+            answer = ""
+            reasoning = ""
+            async for chunk in session:
+                if not self.processing:
+                    await session.close()
+                    break
+
+                async with self:
+                    if chunk.reasoning:
+                        reasoning += chunk.reasoning
+                        self.chat_history[-1].reasoning = reasoning
+                        self._save_current_chat()
+                    if chunk.content:
+                        answer += chunk.content
+                        self.chat_history[-1].content = answer
+                        self._save_current_chat()
+
+                if ENABLE_AUTO_SCROLL_DOWN:
+                    yield rx.call_script(self.scroll_to_bottom_js)
+
+        except Exception as e:
+            async with self:
+                self.chat_history.append(
+                    Message(role="assistant", content=f"Error: {str(e)}")
+                )
+                self._save_current_chat()
+
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
+
+        finally:
+            async with self:
+                self.processing = False
+            yield
+
+    @rx.event
+    def update_assistant_content(self):
+        """Update assistant content."""
+        if self.editing_assistant_content_index is None or not self.answer.strip():
+            return
+
+        index = self.editing_assistant_content_index
+        self.chat_history[index].content = self.answer
+        self._save_current_chat()
+
+        # Reset editing state
+        self.editing_assistant_content_index = None
+        self.answer = ""
+
+    @rx.event
+    def update_assistant_reasoning(self):
+        """Update assistant reasoning."""
+        if self.editing_assistant_reasoning_index is None or not self.reasoning.strip():
+            return
+
+        index = self.editing_assistant_reasoning_index
+        self.chat_history[index].reasoning = self.reasoning
+        self._save_current_chat()
+
+        # Reset editing state
+        self.editing_assistant_reasoning_index = None
+        self.reasoning = ""
+
+    def delete_message(self, index: int):
+        """Delete a message and its associated messages."""
+        # If deleting a user message, also delete the following assistant message
+        if self.chat_history[index].role == "user" and index + 1 < len(
+            self.chat_history
+        ):
+            self.chat_history.pop(index + 1)
+
+        # Delete the selected message
+        self.chat_history.pop(index)
+        self._save_current_chat()

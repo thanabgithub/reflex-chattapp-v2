@@ -13,6 +13,7 @@ class ActionBarState(rx.State):
         """Auto resize the textarea based on content."""
         return rx.call_script(
             """
+            // this technique debug auto scroll up when user input new characters after inputing long text in text area.
             function autoResizeTextArea(element) {
                 if (!element) return;
                 

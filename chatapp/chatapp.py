@@ -40,6 +40,22 @@ def index():
             id="chat-container",
         ),
         right_sidebar.right_sidebar(),
+        rx.script(
+            """
+        function autoResizeTextArea(element) {
+            element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px'; // Limit to 60vh
+        }
+
+        var textarea = document.getElementById('input-textarea--action-bar');
+        if (textarea) {
+            textarea.addEventListener('input', function() {
+            autoResizeTextArea(this);
+            });
+            // Run on initial load too
+            autoResizeTextArea(textarea);
+        }""",
+            strategy="afterInteractive",
+        ),
         width="100%",
         height="100vh",
         background_color="white",

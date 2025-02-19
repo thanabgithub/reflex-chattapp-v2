@@ -371,6 +371,13 @@ Do not make assumptions about implementation details not explicitly shown in the
     @rx.event(background=True)
     async def process_question(self):
         """Process the current question and add it to chat history."""
+        yield rx.call_script(
+            """
+        let temp = document.getElementById('input-textarea--action-bar');
+        temp.style.height = "6em";
+        temp.style.height = "auto";
+        """,
+        )
         if not self.question.strip():
             return
 
@@ -795,4 +802,4 @@ if (chatContainer) {
 
         # Delete the selected message
         self.chat_history.pop(index)
-        self._sve_current_chat()
+        self._save_current_chat()

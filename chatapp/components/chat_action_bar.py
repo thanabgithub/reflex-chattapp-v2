@@ -25,25 +25,6 @@ def action_bar() -> rx.Component:
                             style=style.input_style,
                             on_key_down=State.handle_action_bar_keydown,
                         ),
-                        rx.script(
-                            """
-                            function autoResizeTextArea(element) {
-                              element.style.height = 'auto';
-                              element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px'; // Limit to 60vh
-                            }
-                            
-                            var textarea = document.getElementById('input-textarea--action-bar');
-                            if (textarea) {
-                              textarea.addEventListener('input', function() {
-                                autoResizeTextArea(this);
-                              });
-                              // Run on initial load too
-                              autoResizeTextArea(textarea);
-                            }
-                            delete textarea;
-                            """,
-                            strategy="afterInteractive",
-                        ),
                         rx.hstack(
                             rx.hstack(
                                 rx.select(

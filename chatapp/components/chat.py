@@ -210,9 +210,10 @@ def user_message(msg: Message, index: int) -> rx.Component:
         rx.context_menu.trigger(
             rx.box(
                 rx.box(
-                    rx.markdown(
-                        msg.content,  # don't map because it is gonna cause bug for weird input from user
+                    rx.text(
+                        msg.content,  # don't use markdown because it is gonna cause bug for weird input from user
                         style=style.question_style,
+                        white_space="pre-wrap",
                     ),
                     width="100%",
                 ),

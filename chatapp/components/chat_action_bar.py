@@ -5,6 +5,24 @@ from chatapp.state import State
 from chatapp import style
 
 
+class ActionBarState(rx.State):
+    """State for managing action bar behavior."""
+
+    @rx.event
+    def auto_resize_textarea(self):
+        """Auto resize the textarea based on content."""
+        return rx.call_script(
+            """
+            function autoResizeTextArea(element) {
+                if (!element) return;
+                element.style.height = 'auto';
+                element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px';
+            }
+            autoResizeTextArea(document.getElementById('input-textarea--action-bar'));
+            """
+        )
+
+
 def action_bar() -> rx.Component:
     """The action bar component for user input."""
     return rx.cond(
@@ -18,12 +36,17 @@ def action_bar() -> rx.Component:
                 rx.form(
                     rx.vstack(
                         rx.text_area(
-                            id="input-textarea--action-bar",  # Add an ID for the JS to reference
+                            id="input-textarea--action-bar",
                             value=State.question,
                             placeholder="何でも質問してください...",
-                            on_change=State.set_question,
+                            on_change=[
+                                State.set_question,
+                            ],
                             style=style.input_style,
-                            on_key_down=State.handle_action_bar_keydown,
+                            on_key_down=[
+                                State.handle_action_bar_keydown,
+                                ActionBarState.auto_resize_textarea,
+                            ],
                         ),
                         rx.hstack(
                             rx.hstack(

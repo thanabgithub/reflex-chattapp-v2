@@ -189,7 +189,7 @@ class State(rx.State):
     # Chat state
     chat_history: List[Message] = []
     question: str = ""
-    model: str = "deepseek/deepseek-r1"
+    model: str = "aion-labs/aion-1.0"
     previous_keydown_character: str = ""
 
     # UI state
@@ -213,6 +213,51 @@ class State(rx.State):
     auth_token: str = rx.Cookie("")
     passcode: str = os.getenv("PASSCODE")
     passcode_input: str = ""
+
+    # Agent
+    agent_model: str = "google/gemini-2.0-flash-001"
+    agent_system_instruction: str = """You are a technical documentation analyzer specialized in extracting programming-related information from Python package documentation, library references, and GitHub repositories. Your role is to:
+
+1. Extract relevant API specifications, function signatures, and usage patterns
+2. Identify common implementation patterns and best practices
+3. Note version-specific features and compatibility requirements
+4. Recognize dependencies and import requirements
+5. Parse example code and implementation details
+
+Format your response in a structured way that can be directly consumed by a coding agent:
+
+API_SPECS:
+- Function/method signatures
+- Required parameters and their types
+- Return types and values
+- Class definitions and inheritance patterns
+
+USAGE_PATTERNS:
+- Common implementation examples
+- Recommended patterns
+- Anti-patterns to avoid
+
+DEPENDENCIES:
+- Required imports
+- Version requirements
+- Related packages/modules
+
+CODE_SAMPLES:
+- Relevant example snippets
+- Key implementation patterns
+
+Do not make assumptions about implementation details not explicitly shown in the documentation. Clearly mark any ambiguous or incomplete information."""
+    agent_question: str = """CONTEXT: [Brief description of the coding task to be accomplished]
+
+DOCUMENTATION_SOURCES:
+[Package documentation/GitHub repository links/content]
+
+EXTRACTION_FOCUS:
+- [Specific APIs or features needed]
+- [Implementation patterns required]
+- [Version or compatibility requirements]
+
+Please extract relevant programming information to help implement: [CODING_TASK]"""
 
     @rx.event
     def check_auth(self):
@@ -284,6 +329,17 @@ class State(rx.State):
             self.previous_keydown_character = keydown_character
 
     @rx.event(background=True)
+    async def handle_agent_action_bar_keydown(self, keydown_character: str):
+        """Handle keyboard shortcuts."""
+        async with self:
+            if (
+                self.previous_keydown_character == "Control"
+                and keydown_character == "Enter"
+            ):
+                yield State.process_agent_question
+            self.previous_keydown_character = keydown_character
+
+    @rx.event(background=True)
     async def stop_process(self):
         """Stop the current processing."""
         async with self:
@@ -297,6 +353,12 @@ class State(rx.State):
                 messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": question})
         return messages
+
+    def format_agent_messages(self, agent_question: str) -> List[Dict[str, str]]:
+        return [
+            {"role": "system", "content": self.agent_system_instruction},
+            {"role": "user", "content": agent_question},
+        ]
 
     @rx.event(background=True)
     async def process_question(self):
@@ -329,6 +391,84 @@ class State(rx.State):
                 self.chat_history.append(Message(role="user", content=current_question))
                 # Add initial assistant message
                 self.chat_history.append(Message(role="assistant"))
+                self._save_current_chat()
+
+            yield
+
+            async with processor:
+                answer = ""
+                reasoning = ""
+                async for chunk in processor:
+                    if not self.processing:
+                        break
+
+                    async with self:
+                        if chunk.reasoning:
+                            reasoning += chunk.reasoning
+                            self.chat_history[-1].reasoning = reasoning
+                            self._save_current_chat()
+                        if chunk.content:
+                            answer += chunk.content
+                            self.chat_history[-1].content = answer
+                            self._save_current_chat()
+
+                    if ENABLE_AUTO_SCROLL_DOWN:
+                        yield rx.call_script(self.scroll_to_bottom_js)
+
+        except Exception as e:
+            # Handle any errors that occur
+            async with self:
+                error_msg = f"Error: {str(e)}"
+                self.chat_history.append(Message(role="assistant", content=error_msg))
+                self._save_current_chat()
+
+            if ENABLE_AUTO_SCROLL_DOWN:
+                yield rx.call_script(self.scroll_to_bottom_js)
+
+        finally:
+            async with self:
+                self.processing = False
+            yield
+
+    @rx.event(background=True)
+    async def process_agent_question(self):
+        """Process the current question and add it to chat history."""
+        if not self.agent_question.strip():
+            return
+
+        current_agent_question = self.agent_question
+
+        try:
+            # Initialize API client
+            client = AsyncOpenRouterAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+            )
+
+            messages = self.format_agent_messages(current_agent_question)
+
+            processor = await client.chat.completions.create(
+                model=self.agent_model,
+                messages=messages,
+                stream=True,
+                include_reasoning=True,
+            )
+
+            async with self:
+                self.processing = True
+                self.agent_question = """CONTEXT: [Brief description of the coding task to be accomplished]
+
+DOCUMENTATION_SOURCES:
+[Package documentation/GitHub repository links/content]
+
+EXTRACTION_FOCUS:
+- [Specific APIs or features needed]
+- [Implementation patterns required]
+- [Version or compatibility requirements]
+
+Please extract relevant programming information to help implement: [CODING_TASK]"""
+                # Add agent message
+                self.chat_history.append(Message(role="user"))
                 self._save_current_chat()
 
             yield

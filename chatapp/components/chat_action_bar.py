@@ -48,10 +48,10 @@ def action_bar() -> rx.Component:
                             rx.hstack(
                                 rx.select(
                                     [
-                                        "deepseek/deepseek-r1",
                                         "aion-labs/aion-1.0",
-                                        "openai/gpt-4o-mini",
                                         "google/gemini-2.0-flash-thinking-exp:free",
+                                        "deepseek/deepseek-r1",
+                                        "openai/gpt-4o-mini",
                                     ],
                                     placeholder=State.model,
                                     disabled=State.processing,

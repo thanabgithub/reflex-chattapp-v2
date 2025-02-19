@@ -1,6 +1,10 @@
 """The main Chat app."""
 
 import reflex as rx
+import json
+from types import SimpleNamespace
+from socketio import AsyncServer
+from reflex.utils import format
 
 from chatapp.components import chat, chat_action_bar, left_sidebar, right_sidebar
 from chatapp.pages import auth
@@ -35,21 +39,55 @@ def index():
             style=chat.chat_style,
             id="chat-container",
         ),
-        right_sidebar.right_sidebar(),  # 新しいコンポーネントをここに追加
+        right_sidebar.right_sidebar(),
         width="100%",
         height="100vh",
         background_color="white",
-        grid_template_columns="250px 2fr 1fr",  # 三列レイアウト
+        grid_template_columns="250px 2fr 1fr",
     )
 
+
+# this setup require to handle long textarea input
+
+sio = AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins=("*"),
+    cors_credentials=True,
+    max_http_buffer_size=50000000000,
+    ping_interval=120,
+    ping_timeout=240,
+    json=SimpleNamespace(
+        dumps=staticmethod(format.json_dumps),
+        loads=staticmethod(json.loads),
+    ),
+)
 
 app = rx.App(
     theme=rx.theme(
         appearance="light",
         accent_color="gray",
         radius="medium",
-    )
+    ),
+    sio=sio,
 )
+
+
+# Configure WebSocket settings
+app.api.websocket_config = {
+    "max_message_size": 100 * 1024 * 1024 * 1024,  # 100 GB
+    "ping_interval": 30,  # seconds
+    "ping_timeout": 60,  # seconds
+    "close_timeout": 60,  # seconds
+    "max_queue_size": 32,
+}
+
+# Configure HTTP server settings
+app.api.http_config = {
+    "max_request_body_size": 100 * 1024 * 1024 * 1024,  # 100 GB
+    "keepalive_timeout": 60,  # seconds
+    "read_timeout": 60,  # seconds
+    "write_timeout": 60,  # seconds
+}
 
 # Add pages
 app.add_page(index)

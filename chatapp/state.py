@@ -372,6 +372,15 @@ Do not make assumptions about implementation details not explicitly shown in the
     async def process_question(self):
         """Process the current question and add it to chat history."""
 
+        if not self.question.strip():
+            return
+
+        current_question = self.question
+
+        async with self:
+            self.processing = True
+            self.question = ""  # Clear the input
+
         # shrink action bar after submit
         yield rx.call_script(
             """
@@ -380,11 +389,6 @@ Do not make assumptions about implementation details not explicitly shown in the
         temp.style.height = "auto";
         """,
         )
-        if not self.question.strip():
-            return
-
-        current_question = self.question
-
         try:
             # Initialize API client
             client = AsyncOpenRouterAI(
@@ -402,8 +406,6 @@ Do not make assumptions about implementation details not explicitly shown in the
             )
 
             async with self:
-                self.processing = True
-                self.question = ""  # Clear the input
                 # Add user message
                 self.chat_history.append(Message(role="user", content=current_question))
                 # Add initial assistant message

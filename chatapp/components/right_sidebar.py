@@ -35,13 +35,14 @@ def right_sidebar() -> rx.Component:
                         placeholder="Enter system instructions...",
                         style=style.input_style
                         | dict(
-                            height="5vh",
+                            height="100%",
                             background_color="white",
                             min_height="3em",
                         ),
                         on_change=State.set_agent_system_instruction,
                     ),
                     width="100%",
+                    height="100%",
                 ),
                 # Document section
                 rx.box(
@@ -51,13 +52,14 @@ def right_sidebar() -> rx.Component:
                         placeholder="Enter DOCUMENT...",
                         style=style.input_style
                         | dict(
-                            height="10vh",
+                            height="100%",
                             background_color="white",
                             min_height="3em",
                         ),
                         on_change=State.set_agent_document_as_dict,
                     ),
                     width="100%",
+                    height="100%",
                 ),
                 # User prompt section
                 rx.box(
@@ -98,7 +100,6 @@ def right_sidebar() -> rx.Component:
                 width="100%",
                 height="100%",
                 overflow_y="auto",
-                padding_bottom="1em",
                 justify="between",
             ),
             spacing="4",

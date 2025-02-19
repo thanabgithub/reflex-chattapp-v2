@@ -176,13 +176,45 @@ def editing_assistant_reasoning(index: int) -> rx.Component:
     )
 
 
+def copy_button(code: str) -> rx.Component:
+    """Create a copy button for code blocks."""
+    return rx.button(
+        rx.icon("copy", size=20),
+        on_click=rx.set_clipboard(code),
+        position="absolute",
+        top="0.5em",
+        right="0",
+        background_color="transparent",
+        _hover={"background_color": "rgba(0,0,0,0.1)"},
+    )
+
+
+def code_block_with_copy(code: str, **props) -> rx.Component:
+    """Create a code block with a copy button."""
+    return rx.box(
+        rx.code_block(code, theme=rx.code_block.themes.dark, margin_y="1em", **props),
+        copy_button(code),
+        position="relative",
+    )
+
+
+reasoning_component_map = {"p": lambda text: rx.text.em(text)}
+common_component_map = {
+    "codeblock": code_block_with_copy,
+}
+
+
 def user_message(msg: Message, index: int) -> rx.Component:
     """Display a user message with context menu."""
     return rx.context_menu.root(
         rx.context_menu.trigger(
             rx.box(
                 rx.box(
-                    rx.markdown(msg.content, style=style.question_style),
+                    rx.markdown(
+                        msg.content,
+                        component_map=common_component_map,
+                        style=style.question_style,
+                    ),
                     width="100%",
                 ),
                 width="80%",
@@ -205,11 +237,6 @@ def user_message(msg: Message, index: int) -> rx.Component:
     )
 
 
-component_map = {
-    "p": lambda text: rx.text.em(text),
-}
-
-
 def assistant_message(msg: Message, index: int) -> rx.Component:
     """Display an assistant message with reasoning and content."""
     return rx.vstack(
@@ -220,7 +247,9 @@ def assistant_message(msg: Message, index: int) -> rx.Component:
                 rx.context_menu.trigger(
                     rx.blockquote(
                         rx.box(
-                            rx.markdown(msg.reasoning, component_map=component_map),
+                            rx.markdown(
+                                msg.reasoning, component_map=reasoning_component_map
+                            ),
                             rx.box(
                                 rx.cond(
                                     CopyState.copied_indices[f"{index}_reasoning"],
@@ -256,7 +285,11 @@ def assistant_message(msg: Message, index: int) -> rx.Component:
                 rx.context_menu.trigger(
                     rx.box(
                         rx.box(
-                            rx.markdown(msg.content, style=style.answer_style),
+                            rx.markdown(
+                                msg.content,
+                                component_map=common_component_map,
+                                style=style.answer_style,
+                            ),
                             rx.box(
                                 rx.cond(
                                     CopyState.copied_indices[f"{index}_content"],

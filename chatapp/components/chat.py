@@ -212,7 +212,10 @@ def user_message(msg: Message, index: int) -> rx.Component:
                 rx.box(
                     rx.text(
                         msg.content,  # don't use markdown because it is gonna cause bug for weird input from user
-                        style=style.question_style,
+                        style=style.question_style
+                        | dict(
+                            padding="1em",
+                        ),
                         white_space="pre-wrap",
                     ),
                     width="100%",

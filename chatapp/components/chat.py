@@ -199,7 +199,7 @@ def code_block_with_copy(code: str, **props) -> rx.Component:
 
 
 reasoning_component_map = {"p": lambda text: rx.text.em(text)}
-common_component_map = {
+content_component_map = {
     "codeblock": code_block_with_copy,
 }
 
@@ -211,8 +211,7 @@ def user_message(msg: Message, index: int) -> rx.Component:
             rx.box(
                 rx.box(
                     rx.markdown(
-                        msg.content,
-                        component_map=common_component_map,
+                        msg.content,  # don't map because it is gonna cause bug for weird input from user
                         style=style.question_style,
                     ),
                     width="100%",
@@ -287,7 +286,7 @@ def assistant_message(msg: Message, index: int) -> rx.Component:
                         rx.box(
                             rx.markdown(
                                 msg.content,
-                                component_map=common_component_map,
+                                component_map=content_component_map,
                                 style=style.answer_style,
                             ),
                             rx.box(

@@ -15,8 +15,40 @@ class ActionBarState(rx.State):
             """
             function autoResizeTextArea(element) {
                 if (!element) return;
-                element.style.height = 'auto';
-                element.style.height = Math.min(element.scrollHeight, window.innerHeight * 0.6) + 'px';
+                
+                // Get the computed styles
+                const computed = window.getComputedStyle(element);
+                
+                // Create a hidden div to measure the height
+                const hiddenDiv = document.createElement('div');
+                hiddenDiv.style.cssText = `
+                    width: ${computed.width};
+                    padding: ${computed.padding};
+                    border: ${computed.border};
+                    font: ${computed.font};
+                    letter-spacing: ${computed.letterSpacing};
+                    position: absolute;
+                    top: -9999px;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    white-space: pre-wrap;
+                `;
+                
+                document.body.appendChild(hiddenDiv);
+                hiddenDiv.textContent = element.value;
+                
+                // Calculate target height
+                const maxHeight = window.innerHeight * 0.6;
+                const targetHeight = Math.min(hiddenDiv.offsetHeight, maxHeight);
+                
+                // Clean up
+                document.body.removeChild(hiddenDiv);
+                
+                // Only update if the height would actually change
+                const currentHeight = element.getBoundingClientRect().height;
+                if (Math.abs(currentHeight - targetHeight) > 1) {
+                    element.style.height = targetHeight + 'px';
+                }
             }
             autoResizeTextArea(document.getElementById('input-textarea--action-bar'));
             """

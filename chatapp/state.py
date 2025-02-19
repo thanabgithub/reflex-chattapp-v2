@@ -372,7 +372,7 @@ Do not make assumptions about implementation details not explicitly shown in the
     async def process_question(self):
         """Process the current question and add it to chat history."""
 
-        # shrink action bar after sumbit
+        # shrink action bar after submit
         yield rx.call_script(
             """
         let temp = document.getElementById('input-textarea--action-bar');

@@ -371,6 +371,8 @@ Do not make assumptions about implementation details not explicitly shown in the
     @rx.event(background=True)
     async def process_question(self):
         """Process the current question and add it to chat history."""
+
+        # shrink action bar after sumbit
         yield rx.call_script(
             """
         let temp = document.getElementById('input-textarea--action-bar');

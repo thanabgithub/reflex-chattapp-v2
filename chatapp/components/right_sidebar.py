@@ -82,6 +82,7 @@ def right_sidebar() -> rx.Component:
                                 [
                                     "google/gemini-2.0-flash-001",
                                     "google/gemini-2.0-flash-thinking-exp:free",
+                                    "mistralai/codestral-2501",
                                 ],
                                 placeholder=State.agent_model,
                                 disabled=State.processing,

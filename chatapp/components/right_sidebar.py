@@ -35,7 +35,7 @@ def right_sidebar() -> rx.Component:
                         placeholder="Enter system instructions...",
                         style=style.input_style
                         | dict(
-                            height="100%",
+                            height="90%",
                             background_color="white",
                             min_height="3em",
                         ),
@@ -52,7 +52,7 @@ def right_sidebar() -> rx.Component:
                         placeholder="Enter DOCUMENT...",
                         style=style.input_style
                         | dict(
-                            height="100%",
+                            height="90%",
                             background_color="white",
                             min_height="3em",
                         ),
@@ -88,7 +88,6 @@ def right_sidebar() -> rx.Component:
                                 on_change=State.set_agent_model,
                                 style=style.select_style,
                             ),
-                            spacing="4",
                         ),
                         style=style.form_style,
                     ),

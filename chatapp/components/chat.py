@@ -52,8 +52,9 @@ def editing_user_input(index: int) -> rx.Component:
                     rx.hstack(
                         rx.select(
                             [
-                                "deepseek/deepseek-r1",
+                                "mistralai/codestral-2501",
                                 "aion-labs/aion-1.0",
+                                "deepseek/deepseek-r1",
                                 "openai/gpt-4o-mini",
                                 "google/gemini-2.0-flash-thinking-exp:free",
                             ],

@@ -49,6 +49,7 @@ def action_bar() -> rx.Component:
                                 rx.select(
                                     [
                                         "aion-labs/aion-1.0",
+                                        "mistralai/codestral-2501",
                                         "google/gemini-2.0-flash-thinking-exp:free",
                                         "deepseek/deepseek-r1",
                                         "openai/gpt-4o-mini",
@@ -57,6 +58,7 @@ def action_bar() -> rx.Component:
                                     disabled=State.processing,
                                     on_change=State.set_model,
                                     style=style.select_style,
+                                    height="100%",
                                 ),
                             ),
                             rx.spacer(),

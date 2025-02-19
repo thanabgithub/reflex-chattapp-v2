@@ -183,6 +183,22 @@ class Message(rx.Base):
     reasoning: Optional[str] = None
 
 
+agent_question_template = """CONTEXT:
+[Brief description of the coding task to be accomplished]
+
+<DOCUMENTATION_SOURCES>
+{DOCUMENT}
+</DOCUMENTATION_SOURCES>
+
+EXTRACTION_FOCUS:
+- [Specific APIs or features needed]
+- [Implementation patterns required]
+- [Version or compatibility requirements]
+
+Please extract relevant programming information to help implement:
+[CODING_TASK]"""
+
+
 class State(rx.State):
     """The app state."""
 
@@ -247,17 +263,9 @@ CODE_SAMPLES:
 - Key implementation patterns
 
 Do not make assumptions about implementation details not explicitly shown in the documentation. Clearly mark any ambiguous or incomplete information."""
-    agent_question: str = """CONTEXT: [Brief description of the coding task to be accomplished]
-
-DOCUMENTATION_SOURCES:
-[Package documentation/GitHub repository links/content]
-
-EXTRACTION_FOCUS:
-- [Specific APIs or features needed]
-- [Implementation patterns required]
-- [Version or compatibility requirements]
-
-Please extract relevant programming information to help implement: [CODING_TASK]"""
+    agent_document: str = ""
+    agent_document_dict: Dict = {}
+    agent_question: str = agent_question_template
 
     @rx.event
     def check_auth(self):
@@ -430,13 +438,18 @@ Please extract relevant programming information to help implement: [CODING_TASK]
                 self.processing = False
             yield
 
+    @rx.event
+    def set_agent_document_as_dict(self, value: str):
+        self.agent_document = value
+        self.agent_document_dict["DOCUMENT"] = value
+
     @rx.event(background=True)
     async def process_agent_question(self):
         """Process the current question and add it to chat history."""
         if not self.agent_question.strip():
             return
 
-        current_agent_question = self.agent_question
+        current_agent_question = self.agent_question.format(**self.agent_document_dict)
 
         try:
             # Initialize API client
@@ -456,17 +469,7 @@ Please extract relevant programming information to help implement: [CODING_TASK]
 
             async with self:
                 self.processing = True
-                self.agent_question = """CONTEXT: [Brief description of the coding task to be accomplished]
 
-DOCUMENTATION_SOURCES:
-[Package documentation/GitHub repository links/content]
-
-EXTRACTION_FOCUS:
-- [Specific APIs or features needed]
-- [Implementation patterns required]
-- [Version or compatibility requirements]
-
-Please extract relevant programming information to help implement: [CODING_TASK]"""
                 # Add agent message
                 self.chat_history.append(Message(role="user"))
                 self._save_current_chat()
@@ -792,4 +795,4 @@ if (chatContainer) {
 
         # Delete the selected message
         self.chat_history.pop(index)
-        self._save_current_chat()
+        self._sve_current_chat()

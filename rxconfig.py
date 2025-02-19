@@ -23,6 +23,3 @@ config = rx.Config(
     # api_url="http://152.42.211.214:8000",
     # deploy_url="https://demo.thana.team",
 )
-
-
-print(constants.POLLING_MAX_HTTP_BUFFER_SIZE)

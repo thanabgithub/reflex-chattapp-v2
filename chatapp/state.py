@@ -205,7 +205,7 @@ class State(rx.State):
     # Chat state
     chat_history: List[Message] = []
     question: str = ""
-    model: str = "aion-labs/aion-1.0"
+    model: str = "mistralai/codestral-2501"
     previous_keydown_character: str = ""
 
     # UI state

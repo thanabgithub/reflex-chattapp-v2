@@ -85,8 +85,8 @@ def action_bar() -> rx.Component:
                             rx.hstack(
                                 rx.select(
                                     [
-                                        "aion-labs/aion-1.0",
                                         "mistralai/codestral-2501",
+                                        "aion-labs/aion-1.0",
                                         "google/gemini-2.0-flash-thinking-exp:free",
                                         "deepseek/deepseek-r1",
                                         "openai/gpt-4o-mini",

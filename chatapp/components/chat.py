@@ -276,6 +276,12 @@ def assistant_message(msg: Message, index: int) -> rx.Component:
                         "Edit Reasoning",
                         on_click=lambda: State.start_editing_assistant_reasoning(index),
                     ),
+                    rx.context_menu.separator(),
+                    rx.context_menu.item(
+                        "Delete Message",
+                        color_scheme="red",
+                        on_click=lambda: State.delete_message(index),
+                    ),
                     style=style.context_menu_style,
                 ),
             ),
